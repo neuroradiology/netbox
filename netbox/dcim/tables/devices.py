@@ -51,34 +51,6 @@ def get_cabletermination_row_class(record):
     return ''
 
 
-def get_interface_row_class(record):
-    if not record.enabled:
-        return 'danger'
-    elif record.is_virtual:
-        return 'primary'
-    return get_cabletermination_row_class(record)
-
-
-def get_interface_state_attribute(record):
-    """
-    Get interface enabled state as string to attach to <tr/> DOM element.
-    """
-    if record.enabled:
-        return 'enabled'
-    else:
-        return 'disabled'
-
-
-def get_interface_connected_attribute(record):
-    """
-    Get interface disconnected state as string to attach to <tr/> DOM element.
-    """
-    if record.mark_connected or record.cable:
-        return 'connected'
-    else:
-        return 'disconnected'
-
-
 #
 # Device roles
 #
@@ -210,6 +182,10 @@ class DeviceTable(TenancyColumnsMixin, ContactsColumnMixin, NetBoxTable):
         linkify=True,
         verbose_name=_('Type')
     )
+    platform = tables.Column(
+        linkify=True,
+        verbose_name=_('Platform')
+    )
     primary_ip = tables.Column(
         linkify=True,
         order_by=('primary_ip4', 'primary_ip6'),
@@ -294,7 +270,7 @@ class DeviceTable(TenancyColumnsMixin, ContactsColumnMixin, NetBoxTable):
         model = models.Device
         fields = (
             'pk', 'id', 'name', 'status', 'tenant', 'tenant_group', 'role', 'manufacturer', 'device_type',
-            'platform', 'serial', 'asset_tag', 'region', 'site_group', 'site', 'location', 'rack', 'parent_device',
+            'serial', 'asset_tag', 'region', 'site_group', 'site', 'location', 'rack', 'parent_device',
             'device_bay_position', 'position', 'face', 'latitude', 'longitude', 'airflow', 'primary_ip', 'primary_ip4',
             'primary_ip6', 'oob_ip', 'cluster', 'virtual_chassis', 'vc_position', 'vc_priority', 'description',
             'config_template', 'comments', 'contacts', 'tags', 'created', 'last_updated',
@@ -336,6 +312,10 @@ class ModularDeviceComponentTable(DeviceComponentTable):
     module = tables.Column(
         verbose_name=_('Module'),
         linkify=True
+    )
+    inventory_items = columns.ManyToManyColumn(
+        linkify_item=True,
+        verbose_name=_('Inventory Items'),
     )
 
 
@@ -390,7 +370,7 @@ class ConsolePortTable(ModularDeviceComponentTable, PathEndpointTable):
         model = models.ConsolePort
         fields = (
             'pk', 'id', 'name', 'device', 'module_bay', 'module', 'label', 'type', 'speed', 'description',
-            'mark_connected', 'cable', 'cable_color', 'link_peer', 'connection', 'tags', 'created', 'last_updated',
+            'mark_connected', 'cable', 'cable_color', 'link_peer', 'connection', 'inventory_items', 'tags', 'created', 'last_updated',
         )
         default_columns = ('pk', 'name', 'device', 'label', 'type', 'speed', 'description')
 
@@ -434,7 +414,7 @@ class ConsoleServerPortTable(ModularDeviceComponentTable, PathEndpointTable):
         model = models.ConsoleServerPort
         fields = (
             'pk', 'id', 'name', 'device', 'module_bay', 'module', 'label', 'type', 'speed', 'description',
-            'mark_connected', 'cable', 'cable_color', 'link_peer', 'connection', 'tags', 'created', 'last_updated',
+            'mark_connected', 'cable', 'cable_color', 'link_peer', 'connection', 'inventory_items', 'tags', 'created', 'last_updated',
         )
         default_columns = ('pk', 'name', 'device', 'label', 'type', 'speed', 'description')
 
@@ -485,8 +465,8 @@ class PowerPortTable(ModularDeviceComponentTable, PathEndpointTable):
         model = models.PowerPort
         fields = (
             'pk', 'id', 'name', 'device', 'module_bay', 'module', 'label', 'type', 'description', 'mark_connected',
-            'maximum_draw', 'allocated_draw', 'cable', 'cable_color', 'link_peer', 'connection', 'tags', 'created',
-            'last_updated',
+            'maximum_draw', 'allocated_draw', 'cable', 'cable_color', 'link_peer', 'connection', 'inventory_items',
+            'tags', 'created', 'last_updated',
         )
         default_columns = ('pk', 'name', 'device', 'label', 'type', 'maximum_draw', 'allocated_draw', 'description')
 
@@ -537,8 +517,8 @@ class PowerOutletTable(ModularDeviceComponentTable, PathEndpointTable):
         model = models.PowerOutlet
         fields = (
             'pk', 'id', 'name', 'device', 'module_bay', 'module', 'label', 'type', 'description', 'power_port',
-            'feed_leg', 'mark_connected', 'cable', 'cable_color', 'link_peer', 'connection', 'tags', 'created',
-            'last_updated',
+            'feed_leg', 'mark_connected', 'cable', 'cable_color', 'link_peer', 'connection', 'inventory_items',
+            'tags', 'created', 'last_updated',
         )
         default_columns = ('pk', 'name', 'device', 'label', 'type', 'power_port', 'feed_leg', 'description')
 
@@ -642,10 +622,6 @@ class InterfaceTable(ModularDeviceComponentTable, BaseInterfaceTable, PathEndpoi
         verbose_name=_('VRF'),
         linkify=True
     )
-    inventory_items = tables.ManyToManyColumn(
-        linkify_item=True,
-        verbose_name=_('Inventory Items'),
-    )
     tags = columns.TagColumn(
         url_name='dcim:interface_list'
     )
@@ -702,11 +678,12 @@ class DeviceInterfaceTable(InterfaceTable):
             'cable', 'connection',
         )
         row_attrs = {
-            'class': get_interface_row_class,
             'data-name': lambda record: record.name,
-            'data-enabled': get_interface_state_attribute,
-            'data-type': lambda record: record.type,
-            'data-connected': get_interface_connected_attribute
+            'data-enabled': lambda record: "enabled" if record.enabled else "disabled",
+            'data-virtual': lambda record: "true" if record.is_virtual else "false",
+            'data-mark-connected': lambda record: "true" if record.mark_connected else "false",
+            'data-cable-status': lambda record: record.cable.status if record.cable else "",
+            'data-type': lambda record: record.type
         }
 
 
@@ -736,8 +713,8 @@ class FrontPortTable(ModularDeviceComponentTable, CableTerminationTable):
         model = models.FrontPort
         fields = (
             'pk', 'id', 'name', 'device', 'module_bay', 'module', 'label', 'type', 'color', 'rear_port',
-            'rear_port_position', 'description', 'mark_connected', 'cable', 'cable_color', 'link_peer', 'tags',
-            'created', 'last_updated',
+            'rear_port_position', 'description', 'mark_connected', 'cable', 'cable_color', 'link_peer',
+            'inventory_items', 'tags', 'created', 'last_updated',
         )
         default_columns = (
             'pk', 'name', 'device', 'label', 'type', 'color', 'rear_port', 'rear_port_position', 'description',
@@ -789,7 +766,7 @@ class RearPortTable(ModularDeviceComponentTable, CableTerminationTable):
         model = models.RearPort
         fields = (
             'pk', 'id', 'name', 'device', 'module_bay', 'module', 'label', 'type', 'color', 'positions', 'description',
-            'mark_connected', 'cable', 'cable_color', 'link_peer', 'tags', 'created', 'last_updated',
+            'mark_connected', 'cable', 'cable_color', 'link_peer', 'inventory_items', 'tags', 'created', 'last_updated',
         )
         default_columns = ('pk', 'name', 'device', 'label', 'type', 'color', 'description')
 

@@ -7,7 +7,7 @@ from rest_framework.status import HTTP_400_BAD_REQUEST
 from dcim.models import Device
 from netbox.api.authentication import ViewOnlyPermissions
 from netbox.api.renderers import TextRenderer
-from .nested_serializers import NestedConfigTemplateSerializer
+from .serializers import ConfigTemplateSerializer
 
 __all__ = (
     'ConfigContextQuerySetMixin',
@@ -54,7 +54,7 @@ class ConfigTemplateRenderMixin:
         if request.accepted_renderer.format == 'txt':
             return Response(output)
 
-        template_serializer = NestedConfigTemplateSerializer(configtemplate, context={'request': request})
+        template_serializer = ConfigTemplateSerializer(configtemplate, nested=True, context={'request': request})
 
         return Response({
             'configtemplate': template_serializer.data,
