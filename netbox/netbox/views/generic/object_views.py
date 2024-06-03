@@ -3,6 +3,7 @@ from collections import defaultdict
 from copy import deepcopy
 
 from django.contrib import messages
+from django.core.exceptions import ValidationError
 from django.db import router, transaction
 from django.db.models import ProtectedError, RestrictedError
 from django.db.models.deletion import Collector
@@ -303,6 +304,12 @@ class ObjectEditView(GetReturnURLMixin, BaseObjectView):
                 return redirect(return_url)
 
             except (AbortRequest, PermissionsViolation) as e:
+                logger.debug(e.message)
+                form.add_error(None, e.message)
+                clear_events.send(sender=self)
+
+            # Catch any validation errors thrown in the model.save() or form.save() methods
+            except ValidationError as e:
                 logger.debug(e.message)
                 form.add_error(None, e.message)
                 clear_events.send(sender=self)
