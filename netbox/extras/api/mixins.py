@@ -63,12 +63,6 @@ class ConfigTemplateRenderMixin:
 
 
 class RenderConfigMixin(ConfigTemplateRenderMixin):
-    """
-    Override initial() to save a copy of the queryset for "un-restricting" the queryset when rendering.
-    """
-    def initial(self, request, *args, **kwargs):
-        self.original_queryset = self.queryset
-        super().initial(request, *args, **kwargs)
 
     """
     Provides a /render-config/ endpoint for REST API views whose model may have a ConfigTemplate assigned.
@@ -79,7 +73,6 @@ class RenderConfigMixin(ConfigTemplateRenderMixin):
         """
         Resolve and render the preferred ConfigTemplate for this Device.
         """
-        self.queryset = self.original_queryset.restrict(request.user, 'view')
         instance = self.get_object()
         object_type = instance._meta.model_name
         configtemplate = instance.get_config_template()

@@ -10,6 +10,17 @@ from users.models import Token
 from utilities.request import get_client_ip
 
 
+HTTP_ACTIONS = {
+    'GET': 'view',
+    'OPTIONS': None,
+    'HEAD': 'view',
+    'POST': 'add',
+    'PUT': 'change',
+    'PATCH': 'change',
+    'DELETE': 'delete',
+}
+
+
 class TokenAuthentication(authentication.TokenAuthentication):
     """
     A custom authentication scheme which enforces Token expiration times and source IP restrictions.
@@ -122,6 +133,18 @@ class TokenPermissions(DjangoObjectPermissions):
             return False
 
         return super().has_object_permission(request, view, obj)
+
+    # Helper function to obtain the desired action from the first permission in the permission map
+    def get_action(self, method):
+        # Get the first permission
+        permission = self.perms_map.get(method)[0] if len(self.perms_map.get(method)) > 0 else None
+        if permission:
+            # Remove app and model label
+            action = permission.replace('%(app_label)s.', '').replace('_%(model_name)s', '')
+            return action
+        elif action := HTTP_ACTIONS[method]:
+            return action
+        return None
 
 
 class ViewOnlyPermissions(TokenPermissions):

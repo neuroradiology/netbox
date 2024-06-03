@@ -19,15 +19,7 @@ __all__ = (
     'NetBoxModelViewSet',
 )
 
-HTTP_ACTIONS = {
-    'GET': 'view',
-    'OPTIONS': None,
-    'HEAD': 'view',
-    'POST': 'add',
-    'PUT': 'change',
-    'PATCH': 'change',
-    'DELETE': 'delete',
-}
+from netbox.api.authentication import HTTP_ACTIONS
 
 
 class BaseViewSet(GenericViewSet):
@@ -41,8 +33,11 @@ class BaseViewSet(GenericViewSet):
 
         # Restrict the view's QuerySet to allow only the permitted objects
         if request.user.is_authenticated:
-            if action := HTTP_ACTIONS[request.method]:
-                self.queryset = self.queryset.restrict(request.user, action)
+            for permission in self.get_permissions():
+                if hasattr(permission, 'get_action') and (action := permission.get_action(request.method)):
+                    self.queryset = self.queryset.restrict(request.user, action)
+                elif action := HTTP_ACTIONS[request.method]:
+                    self.queryset = self.queryset.restrict(request.user, action)
 
     def initialize_request(self, request, *args, **kwargs):
 
