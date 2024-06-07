@@ -237,10 +237,7 @@ class Cable(PrimaryModel):
                 if not termination.pk or termination not in b_terminations:
                     CableTermination(cable=self, cable_end='B', termination=termination).save()
 
-        try:
-            trace_paths.send(Cable, instance=self, created=_created)
-        except ValidationError as e:
-            raise ValidationError(f'{e}')
+        trace_paths.send(Cable, instance=self, created=_created)
 
     def get_status_color(self):
         return LinkStatusChoices.colors.get(self.status)
@@ -534,10 +531,8 @@ class CablePath(models.Model):
             return None
 
         # Ensure all originating terminations are attached to the same link
-        if len(terminations) > 1:
-            assert all(t.link == terminations[0].link for t in terminations[1:]), (
-                _("All originating terminations must start must be attached to the same link")
-            )
+        if len(terminations) > 1 and not all(t.link == terminations[0].link for t in terminations[1:]):
+            raise ValidationError(_("All originating terminations must start must be attached to the same link"))
 
         path = []
         position_stack = []
@@ -548,15 +543,13 @@ class CablePath(models.Model):
         while terminations:
 
             # Terminations must all be of the same type
-            assert all(isinstance(t, type(terminations[0])) for t in terminations[1:]), (
-                _("All mid-span terminations must have the same termination type")
-            )
+            if not all(isinstance(t, type(terminations[0])) for t in terminations[1:]):
+                raise ValidationError(_("All mid-span terminations must have the same termination type"))
 
             # All mid-span terminations must all be attached to the same device
-            if not isinstance(terminations[0], PathEndpoint):
-                assert all(t.parent_object == terminations[0].parent_object for t in terminations[1:]), (
-                    _("All mid-span terminations must have the same parent object")
-                )
+            if (not isinstance(terminations[0], PathEndpoint) and not
+                    all(t.parent_object == terminations[0].parent_object for t in terminations[1:])):
+                raise ValidationError(_("All mid-span terminations must have the same parent object"))
 
             # Check for a split path (e.g. rear port fanning out to multiple front ports with
             # different cables attached)
@@ -579,8 +572,10 @@ class CablePath(models.Model):
                     return None
                 # Otherwise, halt the trace if no link exists
                 break
-            assert all(type(link) in (Cable, WirelessLink) for link in links), _("All links must be cable or wireless")
-            assert all(isinstance(link, type(links[0])) for link in links), _("All links must match first link type")
+            if not all(type(link) in (Cable, WirelessLink) for link in links):
+                raise ValidationError(_("All links must be cable or wireless"))
+            if not all(isinstance(link, type(links[0])) for link in links):
+                raise ValidationError(_("All links must match first link type"))
 
             # Step 3: Record asymmetric paths as split
             not_connected_terminations = [termination.link for termination in terminations if termination.link is None]
@@ -657,16 +652,18 @@ class CablePath(models.Model):
                     positions = position_stack.pop()
 
                     # Ensure we have a number of positions equal to the amount of remote terminations
-                    assert len(remote_terminations) == len(positions), (
-                        _("All positions counts within the path on opposite ends of links must match")
-                    )
+                    if len(remote_terminations) != len(positions):
+                        raise ValidationError(
+                            _("All positions counts within the path on opposite ends of links must match")
+                        )
 
                     # Get our front ports
                     q_filter = Q()
                     for rt in remote_terminations:
                         position = positions.pop()
                         q_filter |= Q(rear_port_id=rt.pk, rear_port_position=position)
-                    assert q_filter is not Q(), _("Remote termination query filter is empty, please open a bug report")
+                    if q_filter is Q():
+                        raise ValidationError(_("Remote termination position filter is missing"))
                     front_ports = FrontPort.objects.filter(q_filter)
                 # Obtain the individual front ports based on the termination and position
                 elif position_stack:

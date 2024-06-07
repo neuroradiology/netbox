@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.test import TestCase
 
 from circuits.models import *
@@ -2261,7 +2262,7 @@ class CablePathTestCase(TestCase):
             b_terminations=[frontport1, frontport3],
             label='C1'
         )
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(ValidationError):
             cable1.save()
 
         self.assertPathDoesNotExist(
@@ -2280,7 +2281,7 @@ class CablePathTestCase(TestCase):
             label='C3'
         )
 
-        with self.assertRaises(AssertionError):
+        with self.assertRaises(ValidationError):
             cable3.save()
 
         self.assertPathDoesNotExist(
