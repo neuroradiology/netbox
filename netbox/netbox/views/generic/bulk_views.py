@@ -162,14 +162,22 @@ class ObjectListView(BaseMultiObjectView, ActionsMixin, TableMixin):
         # Render the objects table
         table = self.get_table(self.queryset, request, has_bulk_actions)
 
-        # Check for filterset_form on this view, if a form exists
-        # * Apply to context for use by the filter form tab and initialize the form
+        # Check for filterset_form(s) on this view and/or the table, if a form exists:
+        # * If both exist, initialize both
+        # * If a filterset form for the table exists, only initialize the table filterset_form
+        # * If a filterset form exists for the view, initialize the filterset form
         # * Apply to the table for use by the table and initialize a separate instance of the form for use by the table
         #   column filters
         # * Otherwise set to None
-        if self.filterset_form:
+        if self.filterset_form and table.filterset_form:
+            filterset_form = self.filterset_form(request.GET)
+            table.filterset_form = table.filterset_form(request.GET)
+        elif self.filterset_form and not table.filterset_form:
             filterset_form = self.filterset_form(request.GET)
             table.filterset_form = self.filterset_form(request.GET)
+        elif not self.filterset_form and table.filterset_form:
+            filterset_form = None
+            table.filterset_form = table.filterset_form(request.GET)
         else:
             filterset_form = None
             table.filterset_form = None

@@ -36,6 +36,9 @@ def getfield(form, fieldname):
 
 @register.filter()
 def get_filter_field(form, fieldname):
+    # Check for a table form column map attribute and use that to map form fields if set
+    if hasattr(form, '_table_form_column_map') and form._table_form_column_map.get(fieldname):
+        return getfield(form, form._table_form_column_map.get(fieldname))
     return getfield(form, f'{fieldname}') or getfield(form, f'{fieldname}_id')
 
 
