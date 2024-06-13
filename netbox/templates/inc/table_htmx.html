@@ -1,6 +1,6 @@
 {% load django_tables2 %}
 {% load form_helpers %}
-<table{% if table.attrs %} {{ table.attrs.as_html }}{% endif %} hx-disinherit="hx-target hx-select hx-swap">
+<table{% if table.attrs %} {{ table.attrs.as_html }}{% endif %} hx-disinherit="hx-target hx-select" hx-swap="outerHTML">
   {% if table.show_header %}
     <thead
         hx-target="closest .htmx-container"

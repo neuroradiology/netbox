@@ -42,6 +42,7 @@ class PluginTest(TestCase):
         url = reverse('admin:dummy_plugin_dummymodel_add')
         self.assertEqual(url, '/admin/dummy_plugin/dummymodel/add/')
 
+    @override_settings(LOGIN_REQUIRED=False)
     def test_views(self):
 
         # Test URL resolution
@@ -53,7 +54,7 @@ class PluginTest(TestCase):
         response = client.get(url)
         self.assertEqual(response.status_code, 200)
 
-    @override_settings(EXEMPT_VIEW_PERMISSIONS=['*'])
+    @override_settings(EXEMPT_VIEW_PERMISSIONS=['*'], LOGIN_REQUIRED=False)
     def test_api_views(self):
 
         # Test URL resolution
@@ -65,6 +66,7 @@ class PluginTest(TestCase):
         response = client.get(url)
         self.assertEqual(response.status_code, 200)
 
+    @override_settings(LOGIN_REQUIRED=False)
     def test_registered_views(self):
 
         # Test URL resolution
@@ -97,8 +99,9 @@ class PluginTest(TestCase):
         """
         Check that plugin TemplateExtensions are registered.
         """
-        from netbox.tests.dummy_plugin.template_content import SiteContent
+        from netbox.tests.dummy_plugin.template_content import GlobalContent, SiteContent
 
+        self.assertIn(GlobalContent, registry['plugins']['template_extensions'][None])
         self.assertIn(SiteContent, registry['plugins']['template_extensions']['dcim.site'])
 
     def test_registered_columns(self):
@@ -163,11 +166,11 @@ class PluginTest(TestCase):
             required_settings = ['foo']
 
         # Validation should pass when all required settings are present
-        DummyConfigWithRequiredSettings.validate({'foo': True}, settings.VERSION)
+        DummyConfigWithRequiredSettings.validate({'foo': True}, settings.RELEASE.version)
 
         # Validation should fail when a required setting is missing
         with self.assertRaises(ImproperlyConfigured):
-            DummyConfigWithRequiredSettings.validate({}, settings.VERSION)
+            DummyConfigWithRequiredSettings.validate({}, settings.RELEASE.version)
 
     def test_default_settings(self):
         """
@@ -180,12 +183,12 @@ class PluginTest(TestCase):
 
         # Populate the default value if setting has not been specified
         user_config = {}
-        DummyConfigWithDefaultSettings.validate(user_config, settings.VERSION)
+        DummyConfigWithDefaultSettings.validate(user_config, settings.RELEASE.version)
         self.assertEqual(user_config['bar'], 123)
 
         # Don't overwrite specified values
         user_config = {'bar': 456}
-        DummyConfigWithDefaultSettings.validate(user_config, settings.VERSION)
+        DummyConfigWithDefaultSettings.validate(user_config, settings.RELEASE.version)
         self.assertEqual(user_config['bar'], 456)
 
     def test_graphql(self):

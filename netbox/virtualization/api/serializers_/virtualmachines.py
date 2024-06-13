@@ -31,13 +31,13 @@ __all__ = (
 class VirtualMachineSerializer(NetBoxModelSerializer):
     url = serializers.HyperlinkedIdentityField(view_name='virtualization-api:virtualmachine-detail')
     status = ChoiceField(choices=VirtualMachineStatusChoices, required=False)
-    site = SiteSerializer(nested=True, required=False, allow_null=True)
-    cluster = ClusterSerializer(nested=True, required=False, allow_null=True)
-    device = DeviceSerializer(nested=True, required=False, allow_null=True)
+    site = SiteSerializer(nested=True, required=False, allow_null=True, default=None)
+    cluster = ClusterSerializer(nested=True, required=False, allow_null=True, default=None)
+    device = DeviceSerializer(nested=True, required=False, allow_null=True, default=None)
     role = DeviceRoleSerializer(nested=True, required=False, allow_null=True)
-    tenant = TenantSerializer(nested=True, required=False, allow_null=True)
+    tenant = TenantSerializer(nested=True, required=False, allow_null=True, default=None)
     platform = PlatformSerializer(nested=True, required=False, allow_null=True)
-    primary_ip = IPAddressSerializer(nested=True, read_only=True)
+    primary_ip = IPAddressSerializer(nested=True, read_only=True, allow_null=True)
     primary_ip4 = IPAddressSerializer(nested=True, required=False, allow_null=True)
     primary_ip6 = IPAddressSerializer(nested=True, required=False, allow_null=True)
     config_template = ConfigTemplateSerializer(nested=True, required=False, allow_null=True, default=None)
@@ -49,13 +49,12 @@ class VirtualMachineSerializer(NetBoxModelSerializer):
     class Meta:
         model = VirtualMachine
         fields = [
-            'id', 'url', 'display', 'name', 'status', 'site', 'cluster', 'device', 'role', 'tenant', 'platform',
-            'primary_ip', 'primary_ip4', 'primary_ip6', 'vcpus', 'memory', 'disk', 'description', 'comments',
-            'config_template', 'local_context_data', 'tags', 'custom_fields', 'created', 'last_updated',
+            'id', 'url', 'display', 'name', 'status', 'site', 'cluster', 'device', 'serial', 'role', 'tenant',
+            'platform', 'primary_ip', 'primary_ip4', 'primary_ip6', 'vcpus', 'memory', 'disk', 'description',
+            'comments', 'config_template', 'local_context_data', 'tags', 'custom_fields', 'created', 'last_updated',
             'interface_count', 'virtual_disk_count',
         ]
         brief_fields = ('id', 'url', 'display', 'name', 'description')
-        validators = []
 
 
 class VirtualMachineWithConfigContextSerializer(VirtualMachineSerializer):
@@ -63,9 +62,9 @@ class VirtualMachineWithConfigContextSerializer(VirtualMachineSerializer):
 
     class Meta(VirtualMachineSerializer.Meta):
         fields = [
-            'id', 'url', 'display', 'name', 'status', 'site', 'cluster', 'device', 'role', 'tenant', 'platform',
-            'primary_ip', 'primary_ip4', 'primary_ip6', 'vcpus', 'memory', 'disk', 'description', 'comments',
-            'config_template', 'local_context_data', 'tags', 'custom_fields', 'config_context', 'created',
+            'id', 'url', 'display', 'name', 'status', 'site', 'cluster', 'device', 'serial', 'role', 'tenant',
+            'platform', 'primary_ip', 'primary_ip4', 'primary_ip6', 'vcpus', 'memory', 'disk', 'description',
+            'comments', 'config_template', 'local_context_data', 'tags', 'custom_fields', 'config_context', 'created',
             'last_updated', 'interface_count', 'virtual_disk_count',
         ]
 

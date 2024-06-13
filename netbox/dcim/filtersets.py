@@ -698,9 +698,6 @@ class DeviceTypeComponentFilterSet(django_filters.FilterSet):
         label=_('Device type (ID)'),
     )
 
-    # TODO: Remove in v4.1
-    devicetype_id = device_type_id
-
     def search(self, queryset, name, value):
         if not value.strip():
             return queryset
@@ -716,9 +713,6 @@ class ModularDeviceTypeComponentFilterSet(DeviceTypeComponentFilterSet):
         field_name='module_type_id',
         label=_('Module type (ID)'),
     )
-
-    # TODO: Remove in v4.1
-    moduletype_id = module_type_id
 
 
 class ConsolePortTemplateFilterSet(ChangeLoggedModelFilterSet, ModularDeviceTypeComponentFilterSet):
@@ -1100,6 +1094,10 @@ class DeviceFilterSet(
         queryset=IPAddress.objects.all(),
         label=_('OOB IP (ID)'),
     )
+    has_virtual_device_context = django_filters.BooleanFilter(
+        method='_has_virtual_device_context',
+        label=_('Has virtual device context'),
+    )
 
     class Meta:
         model = Device
@@ -1175,6 +1173,12 @@ class DeviceFilterSet(
 
     def _device_bays(self, queryset, name, value):
         return queryset.exclude(devicebays__isnull=value)
+
+    def _has_virtual_device_context(self, queryset, name, value):
+        params = Q(vdcs__isnull=False)
+        if value:
+            return queryset.filter(params).distinct()
+        return queryset.exclude(params)
 
 
 class VirtualDeviceContextFilterSet(NetBoxModelFilterSet, TenancyFilterSet, PrimaryIPFilterSet):

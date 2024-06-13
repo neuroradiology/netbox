@@ -165,7 +165,8 @@ class CustomFieldFilterSet(ChangeLoggedModelFilterSet):
             Q(name__icontains=value) |
             Q(label__icontains=value) |
             Q(group_name__icontains=value) |
-            Q(description__icontains=value)
+            Q(description__icontains=value) |
+            Q(comments__icontains=value)
         )
 
 
@@ -587,10 +588,6 @@ class ConfigContextFilterSet(ChangeLoggedModelFilterSet):
         queryset=DataSource.objects.all(),
         label=_('Data file (ID)'),
     )
-
-    # TODO: Remove in v4.1
-    role = device_role
-    role_id = device_role_id
 
     class Meta:
         model = ConfigContext

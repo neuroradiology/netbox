@@ -65,12 +65,6 @@ class AnotherCustomScript(Script):
 script_order = (MyCustomScript, AnotherCustomScript)
 ```
 
-## Module Attributes
-
-### `name`
-
-You can define `name` within a script module (the Python file which contains one or more scripts) to set the module name. If `name` is not defined, the module's file name will be used.
-
 ## Script Attributes
 
 Script attributes are defined under a class named `Meta` within the script. These are optional, but encouraged.
@@ -370,6 +364,14 @@ An IPv4 or IPv6 network with a mask. Returns a `netaddr.IPNetwork` object. Two a
 
 * `min_prefix_length` - Minimum length of the mask
 * `max_prefix_length` - Maximum length of the mask
+
+### DateVar
+
+A calendar date. Returns a `datetime.date` object.
+
+### DateTimeVar
+
+A complete date & time. Returns a `datetime.datetime` object.
 
 ## Running Custom Scripts
 

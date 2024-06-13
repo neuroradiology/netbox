@@ -15,7 +15,7 @@ from extras.models import ConfigContextModel
 from extras.querysets import ConfigContextModelQuerySet
 from netbox.config import get_config
 from netbox.models import NetBoxModel, PrimaryModel
-from netbox.models.features import ContactsMixin
+from netbox.models.features import ContactsMixin, ImageAttachmentsMixin
 from utilities.fields import CounterCacheField, NaturalOrderingField
 from utilities.ordering import naturalize_interface
 from utilities.query_functions import CollateAsChar
@@ -29,7 +29,7 @@ __all__ = (
 )
 
 
-class VirtualMachine(ContactsMixin, RenderConfigMixin, ConfigContextModel, PrimaryModel):
+class VirtualMachine(ContactsMixin, ImageAttachmentsMixin, RenderConfigMixin, ConfigContextModel, PrimaryModel):
     """
     A virtual machine which runs inside a Cluster.
     """
@@ -125,7 +125,12 @@ class VirtualMachine(ContactsMixin, RenderConfigMixin, ConfigContextModel, Prima
     disk = models.PositiveIntegerField(
         blank=True,
         null=True,
-        verbose_name=_('disk (GB)')
+        verbose_name=_('disk (MB)')
+    )
+    serial = models.CharField(
+        verbose_name=_('serial number'),
+        blank=True,
+        max_length=50
     )
 
     # Counter fields

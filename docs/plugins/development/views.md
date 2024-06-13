@@ -157,7 +157,7 @@ These views are provided to enable or enhance certain NetBox model features, suc
 
 ### Additional Tabs
 
-Plugins can "attach" a custom view to a core NetBox model by registering it with `register_model_view()`. To include a tab for this view within the NetBox UI, declare a TabView instance named `tab`:
+Plugins can "attach" a custom view to a core NetBox model by registering it with `register_model_view()`. To include a tab for this view within the NetBox UI, declare a TabView instance named `tab`, and add it to the template context dict:
 
 ```python
 from dcim.models import Site
@@ -173,6 +173,16 @@ class MyView(generic.ObjectView):
         badge=lambda obj: Stuff.objects.filter(site=obj).count(),
         permission='myplugin.view_stuff'
     )
+
+    def get(self, request, pk):
+        ...
+        return render(
+            request,
+            "myplugin/mytabview.html",
+            context={
+                "tab": self.tab,
+            },
+        )
 ```
 
 ::: utilities.views.register_model_view
@@ -185,11 +195,14 @@ Plugins can inject custom content into certain areas of core NetBox views. This 
 
 | Method              | View        | Description                                         |
 |---------------------|-------------|-----------------------------------------------------|
+| `navbar()`          | All         | Inject content inside the top navigation bar        |
 | `left_page()`       | Object view | Inject content on the left side of the page         |
 | `right_page()`      | Object view | Inject content on the right side of the page        |
 | `full_width_page()` | Object view | Inject content across the entire bottom of the page |
 | `buttons()`         | Object view | Add buttons to the top of the page                  |
 | `list_buttons()`    | List view   | Add buttons to the top of the page                  |
+
+!!! info "The `navbar()` method was introduced in NetBox v4.1."
 
 Additionally, a `render()` method is available for convenience. This method accepts the name of a template to render, and any additional context data you want to pass. Its use is optional, however.
 

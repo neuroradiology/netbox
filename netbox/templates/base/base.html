@@ -8,9 +8,6 @@
   lang="en"
   data-netbox-url-name="{{ request.resolver_match.url_name }}"
   data-netbox-base-path="{{ settings.BASE_PATH }}"
-  {% with preferences|get_key:'ui.colormode' as color_mode %}
-    data-netbox-color-mode="{{ color_mode|default:"unset" }}"
-  {% endwith %}
   >
   <head>
     <meta charset="UTF-8" />
@@ -23,7 +20,7 @@
     {# Initialize color mode #}
     <script
       type="text/javascript"
-      src="{% static 'setmode.js' %}"
+      src="{% static 'setmode.js' %}?v={{ settings.RELEASE.version }}"
       onerror="window.location='{% url 'media_failure' %}?filename=setmode.js'">
     </script>
     <script type="text/javascript">
@@ -36,12 +33,12 @@
     {# Static resources #}
     <link
       rel="stylesheet"
-      href="{% static 'netbox-external.css'%}?v={{ settings.VERSION }}"
+      href="{% static 'netbox-external.css'%}?v={{ settings.RELEASE.version }}"
       onerror="window.location='{% url 'media_failure' %}?filename=netbox-external.css'"
     />
     <link
       rel="stylesheet"
-      href="{% static 'netbox.css'%}?v={{ settings.VERSION }}"
+      href="{% static 'netbox.css'%}?v={{ settings.RELEASE.version }}"
       onerror="window.location='{% url 'media_failure' %}?filename=netbox.css'"
     />
     <link rel="icon" type="image/png" href="{% static 'netbox.ico' %}" />
@@ -50,7 +47,7 @@
     {# Javascript #}
     <script
       type="text/javascript"
-      src="{% static 'netbox.js' %}?v={{ settings.VERSION }}"
+      src="{% static 'netbox.js' %}?v={{ settings.RELEASE.version }}"
       onerror="window.location='{% url 'media_failure' %}?filename=netbox.js'">
     </script>
     {% django_htmx_script %}

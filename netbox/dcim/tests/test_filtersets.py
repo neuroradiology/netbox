@@ -50,9 +50,9 @@ class DeviceComponentTemplateFilterSetTests:
         params = {'description': ['foobar1', 'foobar2']}
         self.assertEqual(self.filterset(params, self.queryset).qs.count(), 2)
 
-    def test_devicetype_id(self):
+    def test_device_type_id(self):
         device_types = DeviceType.objects.all()[:2]
-        params = {'devicetype_id': [device_types[0].pk, device_types[1].pk]}
+        params = {'device_type_id': [device_types[0].pk, device_types[1].pk]}
         self.assertEqual(self.filterset(params, self.queryset).qs.count(), 2)
 
 
@@ -1753,9 +1753,9 @@ class InventoryItemTemplateTestCase(TestCase, DeviceComponentTemplateFilterSetTe
         params = {'name': ['Inventory Item 1', 'Inventory Item 2']}
         self.assertEqual(self.filterset(params, self.queryset).qs.count(), 2)
 
-    def test_devicetype_id(self):
+    def test_device_type_id(self):
         device_types = DeviceType.objects.all()[:2]
-        params = {'devicetype_id': [device_types[0].pk, device_types[1].pk]}
+        params = {'device_type_id': [device_types[0].pk, device_types[1].pk]}
         self.assertEqual(self.filterset(params, self.queryset).qs.count(), 4)
 
     def test_label(self):
@@ -2103,6 +2103,9 @@ class DeviceTestCase(TestCase, ChangeLoggedFilterSetTests):
         Device.objects.filter(pk=devices[0].pk).update(virtual_chassis=virtual_chassis, vc_position=1, vc_priority=1)
         Device.objects.filter(pk=devices[1].pk).update(virtual_chassis=virtual_chassis, vc_position=2, vc_priority=2)
 
+        # VirtualDeviceContext assignment for filtering
+        VirtualDeviceContext.objects.create(device=devices[0], name="VDC 1", identifier=1, status='active')
+
     def test_q(self):
         params = {'q': 'foobar1'}
         self.assertEqual(self.filterset(params, self.queryset).qs.count(), 1)
@@ -2334,6 +2337,12 @@ class DeviceTestCase(TestCase, ChangeLoggedFilterSetTests):
         params = {'tenant_group_id': [tenant_groups[0].pk, tenant_groups[1].pk]}
         self.assertEqual(self.filterset(params, self.queryset).qs.count(), 2)
         params = {'tenant_group': [tenant_groups[0].slug, tenant_groups[1].slug]}
+        self.assertEqual(self.filterset(params, self.queryset).qs.count(), 2)
+
+    def test_has_virtual_device_context(self):
+        params = {'has_virtual_device_context': 'true'}
+        self.assertEqual(self.filterset(params, self.queryset).qs.count(), 1)
+        params = {'has_virtual_device_context': 'false'}
         self.assertEqual(self.filterset(params, self.queryset).qs.count(), 2)
 
 
