@@ -7,6 +7,7 @@ from rest_framework.permissions import BasePermission, DjangoObjectPermissions, 
 
 from netbox.config import get_config
 from users.models import Token
+from utilities.permissions import resolve_permission
 from utilities.request import get_client_ip
 
 
@@ -140,26 +141,18 @@ class TokenPermissions(DjangoObjectPermissions):
         permission = self.perms_map.get(method)[0] if len(self.perms_map.get(method)) > 0 else None
         if permission:
             # Remove app and model label
-            action = permission.replace('%(app_label)s.', '').replace('_%(model_name)s', '')
-            return action
-        elif action := HTTP_ACTIONS[method]:
+            action = resolve_permission(permission)
             return action
         return None
 
 
-class ViewOnlyPermissions(TokenPermissions):
-    """
-    Override the stock perm_map to require only view permissions
-    """
-    perms_map = {
-        'GET': ['%(app_label)s.view_%(model_name)s'],
-        'OPTIONS': [],
-        'HEAD': ['%(app_label)s.view_%(model_name)s'],
-        'POST': ['%(app_label)s.view_%(model_name)s'],
-        'PUT': ['%(app_label)s.view_%(model_name)s'],
-        'PATCH': ['%(app_label)s.view_%(model_name)s'],
-        'DELETE': ['%(app_label)s.view_%(model_name)s'],
-    }
+class RequireViewOnlyPermissions(TokenPermissions):
+
+    # Only return view as the action
+    def get_action(self, method):
+        if method != 'OPTIONS':
+            return 'view'
+        return None
 
 
 class IsAuthenticatedOrLoginNotRequired(BasePermission):

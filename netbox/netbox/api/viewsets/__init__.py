@@ -36,8 +36,6 @@ class BaseViewSet(GenericViewSet):
             for permission in self.get_permissions():
                 if hasattr(permission, 'get_action') and (action := permission.get_action(request.method)):
                     self.queryset = self.queryset.restrict(request.user, action)
-                elif action := HTTP_ACTIONS[request.method]:
-                    self.queryset = self.queryset.restrict(request.user, action)
 
     def initialize_request(self, request, *args, **kwargs):
 

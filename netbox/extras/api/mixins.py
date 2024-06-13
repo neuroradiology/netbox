@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework.status import HTTP_400_BAD_REQUEST
 
 from dcim.models import Device
-from netbox.api.authentication import ViewOnlyPermissions
+from netbox.api.authentication import RequireViewOnlyPermissions
 from netbox.api.renderers import TextRenderer
 from .serializers import ConfigTemplateSerializer
 
@@ -68,7 +68,7 @@ class RenderConfigMixin(ConfigTemplateRenderMixin):
     Provides a /render-config/ endpoint for REST API views whose model may have a ConfigTemplate assigned.
     """
     @action(detail=True, methods=['post'], url_path='render-config', renderer_classes=[JSONRenderer, TextRenderer],
-            permission_classes=[ViewOnlyPermissions])
+            permission_classes=[RequireViewOnlyPermissions])
     def render_config(self, request, pk):
         """
         Resolve and render the preferred ConfigTemplate for this Device.
