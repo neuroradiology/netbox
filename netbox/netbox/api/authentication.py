@@ -141,18 +141,25 @@ class TokenPermissions(DjangoObjectPermissions):
         permission = self.perms_map.get(method)[0] if len(self.perms_map.get(method)) > 0 else None
         if permission:
             # Remove app and model label
-            action = resolve_permission(permission)
+            app_label, action, model_name = resolve_permission(permission)
             return action
         return None
 
 
 class RequireViewOnlyPermissions(TokenPermissions):
-
-    # Only return view as the action
-    def get_action(self, method):
-        if method != 'OPTIONS':
-            return 'view'
-        return None
+    """
+    Overrides permission map to return only view permissions as required
+    """
+    # Override the stock perm_map to enforce view permissions
+    perms_map = {
+        'GET': ['%(app_label)s.view_%(model_name)s'],
+        'OPTIONS': [],
+        'HEAD': ['%(app_label)s.view_%(model_name)s'],
+        'POST': ['%(app_label)s.view_%(model_name)s'],
+        'PUT': ['%(app_label)s.view_%(model_name)s'],
+        'PATCH': ['%(app_label)s.view_%(model_name)s'],
+        'DELETE': ['%(app_label)s.view_%(model_name)s'],
+    }
 
 
 class IsAuthenticatedOrLoginNotRequired(BasePermission):
