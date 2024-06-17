@@ -311,6 +311,13 @@ class CableTermination(ChangeLoggedModel):
         verbose_name = _('cable termination')
         verbose_name_plural = _('cable terminations')
 
+    def __init__(self, *args, a_terminations=None, b_terminations=None, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # A copy of the PK to be used by __str__ in case the object is deleted
+        self._orig_cable = self.__dict__.get('cable')
+        self._orig_cable_end = self.__dict__.get('cable_end')
+
     def __str__(self):
         return f'Cable {self.cable} to {self.termination}'
 
@@ -351,6 +358,7 @@ class CableTermination(ChangeLoggedModel):
 
         # Cache objects associated with the terminating object (for filtering)
         self.cache_related_objects()
+        created = self.pk is None
 
         super().save(*args, **kwargs)
 
@@ -360,6 +368,21 @@ class CableTermination(ChangeLoggedModel):
         termination.cable = self.cable
         termination.cable_end = self.cable_end
         termination.save()
+
+        if not created:
+            if self._orig_cable != self.cable:
+                # Need to send signal to both old and new cable
+                self._orig_cable._terminations_modified = True
+                trace_paths.send(Cable, instance=self._orig_cable, created=False)
+
+                self._orig_cable = self.cable
+                self.cable._terminations_modified = True
+                trace_paths.send(Cable, instance=self.cable, created=False)
+
+            elif self._orig_cable_end != self.cable_end:
+                self._orig_cable_end = self.cable_end
+                self.cable._terminations_modified = True
+                trace_paths.send(Cable, instance=self.cable, created=False)
 
     def delete(self, *args, **kwargs):
 
@@ -371,6 +394,7 @@ class CableTermination(ChangeLoggedModel):
         )
 
         super().delete(*args, **kwargs)
+        trace_paths.send(Cable, instance=self.cable, created=False)
 
     def cache_related_objects(self):
         """
