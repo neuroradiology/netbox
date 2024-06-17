@@ -19,8 +19,6 @@ __all__ = (
     'NetBoxModelViewSet',
 )
 
-from netbox.api.authentication import HTTP_ACTIONS
-
 
 class BaseViewSet(GenericViewSet):
     """

@@ -11,17 +11,6 @@ from utilities.permissions import resolve_permission
 from utilities.request import get_client_ip
 
 
-HTTP_ACTIONS = {
-    'GET': 'view',
-    'OPTIONS': None,
-    'HEAD': 'view',
-    'POST': 'add',
-    'PUT': 'change',
-    'PATCH': 'change',
-    'DELETE': 'delete',
-}
-
-
 class TokenAuthentication(authentication.TokenAuthentication):
     """
     A custom authentication scheme which enforces Token expiration times and source IP restrictions.
