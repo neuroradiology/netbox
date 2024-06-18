@@ -103,9 +103,14 @@ class TokenPermissions(DjangoObjectPermissions):
         super().__init__()
 
     def _verify_write_permission(self, request):
+        # Determine if this permission set allows read-only tokens
+        allow_readonly_token = getattr(self, 'allow_readonly_token', False)
 
         # If token authentication is in use, verify that the token allows write operations (for unsafe methods).
-        if request.method in SAFE_METHODS or request.auth.write_enabled:
+        # If this permission set allows read-only tokens, also permit access
+        if request.method in SAFE_METHODS or request.auth.write_enabled or (
+                not request.auth.write_enabled and allow_readonly_token
+        ):
             return True
 
     def has_permission(self, request, view):
@@ -149,6 +154,8 @@ class RequireViewOnlyPermissions(TokenPermissions):
         'PATCH': ['%(app_label)s.view_%(model_name)s'],
         'DELETE': ['%(app_label)s.view_%(model_name)s'],
     }
+
+    allow_readonly_token = True
 
 
 class IsAuthenticatedOrLoginNotRequired(BasePermission):
