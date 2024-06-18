@@ -3,7 +3,7 @@ import logging
 from django.conf import settings
 from django.utils import timezone
 from rest_framework import authentication, exceptions
-from rest_framework.permissions import BasePermission, DjangoObjectPermissions, SAFE_METHODS
+from rest_framework.permissions import BasePermission, DjangoObjectPermissions, SAFE_METHODS, DjangoModelPermissions
 
 from netbox.config import get_config
 from users.models import Token
@@ -103,14 +103,10 @@ class TokenPermissions(DjangoObjectPermissions):
         super().__init__()
 
     def _verify_write_permission(self, request):
-        # Determine if this permission set allows read-only tokens
-        allow_readonly_token = getattr(self, 'allow_readonly_token', False)
 
         # If token authentication is in use, verify that the token allows write operations (for unsafe methods).
         # If this permission set allows read-only tokens, also permit access
-        if request.method in SAFE_METHODS or request.auth.write_enabled or (
-                not request.auth.write_enabled and allow_readonly_token
-        ):
+        if request.method in SAFE_METHODS or request.auth.write_enabled:
             return True
 
     def has_permission(self, request, view):
@@ -155,7 +151,11 @@ class RequireViewOnlyPermissions(TokenPermissions):
         'DELETE': ['%(app_label)s.view_%(model_name)s'],
     }
 
-    allow_readonly_token = True
+    def has_permission(self, request, view):
+        return super(DjangoModelPermissions, self).has_permission(request, view)
+
+    def has_object_permission(self, request, view, obj):
+        return super(DjangoObjectPermissions, self).has_permission(request, view)
 
 
 class IsAuthenticatedOrLoginNotRequired(BasePermission):
