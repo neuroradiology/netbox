@@ -1,3 +1,5 @@
+from extras.choices import LogLevelChoices
+
 # Events
 EVENT_CREATE = 'create'
 EVENT_UPDATE = 'update'
@@ -5,6 +7,8 @@ EVENT_DELETE = 'delete'
 EVENT_JOB_START = 'job_start'
 EVENT_JOB_END = 'job_end'
 
+# Custom fields
+CUSTOMFIELD_EMPTY_VALUES = (None, '', [])
 
 # Webhooks
 HTTP_CONTENT_TYPE_JSON = 'application/json'
@@ -128,8 +132,17 @@ DEFAULT_DASHBOARD = [
         'title': 'Change Log',
         'color': 'blue',
         'config': {
-            'model': 'extras.objectchange',
+            'model': 'core.objectchange',
             'page_size': 25,
         }
     },
 ]
+
+LOG_LEVEL_RANK = {
+    LogLevelChoices.LOG_DEFAULT: 0,
+    LogLevelChoices.LOG_DEBUG: 1,
+    LogLevelChoices.LOG_SUCCESS: 2,
+    LogLevelChoices.LOG_INFO: 3,
+    LogLevelChoices.LOG_WARNING: 4,
+    LogLevelChoices.LOG_FAILURE: 5,
+}

@@ -14,12 +14,12 @@ from core.forms import ManagedFileForm
 from core.models import Job
 from core.tables import JobTable
 from dcim.models import Device, DeviceRole, Platform
+from extras.choices import LogLevelChoices
 from extras.dashboard.forms import DashboardWidgetAddForm, DashboardWidgetForm
 from extras.dashboard.utils import get_widget_class
 from netbox.constants import DEFAULT_ACTION_PERMISSIONS
 from netbox.views import generic
 from netbox.views.generic.mixins import TableMixin
-from utilities.data import shallow_compare_dict
 from utilities.forms import ConfirmationForm, get_field_value
 from utilities.htmx import htmx_partial
 from utilities.paginator import EnhancedPaginator, get_paginate_count
@@ -31,6 +31,7 @@ from utilities.templatetags.builtins.filters import render_markdown
 from utilities.views import ContentTypePermissionRequiredMixin, get_viewname, register_model_view
 from virtualization.models import VirtualMachine
 from . import filtersets, forms, tables
+from .constants import LOG_LEVEL_RANK
 from .models import *
 from .scripts import run_script
 from .tables import ReportResultsTable, ScriptResultsTable
@@ -684,75 +685,6 @@ class ConfigTemplateBulkSyncDataView(generic.BulkSyncDataView):
 
 
 #
-# Change logging
-#
-
-class ObjectChangeListView(generic.ObjectListView):
-    queryset = ObjectChange.objects.valid_models()
-    filterset = filtersets.ObjectChangeFilterSet
-    filterset_form = forms.ObjectChangeFilterForm
-    table = tables.ObjectChangeTable
-    template_name = 'extras/objectchange_list.html'
-    actions = {
-        'export': {'view'},
-    }
-
-
-@register_model_view(ObjectChange)
-class ObjectChangeView(generic.ObjectView):
-    queryset = ObjectChange.objects.valid_models()
-
-    def get_extra_context(self, request, instance):
-        related_changes = ObjectChange.objects.valid_models().restrict(request.user, 'view').filter(
-            request_id=instance.request_id
-        ).exclude(
-            pk=instance.pk
-        )
-        related_changes_table = tables.ObjectChangeTable(
-            data=related_changes[:50],
-            orderable=False
-        )
-
-        objectchanges = ObjectChange.objects.valid_models().restrict(request.user, 'view').filter(
-            changed_object_type=instance.changed_object_type,
-            changed_object_id=instance.changed_object_id,
-        )
-
-        next_change = objectchanges.filter(time__gt=instance.time).order_by('time').first()
-        prev_change = objectchanges.filter(time__lt=instance.time).order_by('-time').first()
-
-        if not instance.prechange_data and instance.action in ['update', 'delete'] and prev_change:
-            non_atomic_change = True
-            prechange_data = prev_change.postchange_data_clean
-        else:
-            non_atomic_change = False
-            prechange_data = instance.prechange_data_clean
-
-        if prechange_data and instance.postchange_data:
-            diff_added = shallow_compare_dict(
-                prechange_data or dict(),
-                instance.postchange_data_clean or dict(),
-                exclude=['last_updated'],
-            )
-            diff_removed = {
-                x: prechange_data.get(x) for x in diff_added
-            } if prechange_data else {}
-        else:
-            diff_added = None
-            diff_removed = None
-
-        return {
-            'diff_added': diff_added,
-            'diff_removed': diff_removed,
-            'next_change': next_change,
-            'prev_change': prev_change,
-            'related_changes_table': related_changes_table,
-            'related_changes_count': related_changes.count(),
-            'non_atomic_change': non_atomic_change
-        }
-
-
-#
 # Image attachments
 #
 
@@ -1189,20 +1121,27 @@ class ScriptResultView(TableMixin, generic.ObjectView):
         tests = None
         table = None
         index = 0
+
+        log_threshold = LOG_LEVEL_RANK.get(request.GET.get('log_threshold', LogLevelChoices.LOG_DEFAULT))
         if job.data:
+
             if 'log' in job.data:
                 if 'tests' in job.data:
                     tests = job.data['tests']
 
                 for log in job.data['log']:
-                    index += 1
-                    result = {
-                        'index': index,
-                        'time': log.get('time'),
-                        'status': log.get('status'),
-                        'message': log.get('message'),
-                    }
-                    data.append(result)
+                    log_level = LOG_LEVEL_RANK.get(log.get('status'), LogLevelChoices.LOG_DEFAULT)
+                    if log_level >= log_threshold:
+                        index += 1
+                        result = {
+                            'index': index,
+                            'time': log.get('time'),
+                            'status': log.get('status'),
+                            'message': log.get('message'),
+                            'object': log.get('obj'),
+                            'url': log.get('url'),
+                        }
+                        data.append(result)
 
                 table = ScriptResultsTable(data, user=request.user)
                 table.configure(request)
@@ -1214,17 +1153,19 @@ class ScriptResultView(TableMixin, generic.ObjectView):
             for method, test_data in tests.items():
                 if 'log' in test_data:
                     for time, status, obj, url, message in test_data['log']:
-                        index += 1
-                        result = {
-                            'index': index,
-                            'method': method,
-                            'time': time,
-                            'status': status,
-                            'object': obj,
-                            'url': url,
-                            'message': message,
-                        }
-                        data.append(result)
+                        log_level = LOG_LEVEL_RANK.get(status, LogLevelChoices.LOG_DEFAULT)
+                        if log_level >= log_threshold:
+                            index += 1
+                            result = {
+                                'index': index,
+                                'method': method,
+                                'time': time,
+                                'status': status,
+                                'object': obj,
+                                'url': url,
+                                'message': message,
+                            }
+                            data.append(result)
 
             table = ReportResultsTable(data, user=request.user)
             table.configure(request)
@@ -1242,6 +1183,8 @@ class ScriptResultView(TableMixin, generic.ObjectView):
             'script': job.object,
             'job': job,
             'table': table,
+            'log_levels': dict(LogLevelChoices),
+            'log_threshold': request.GET.get('log_threshold', LogLevelChoices.LOG_DEFAULT)
         }
 
         if job.data and 'log' in job.data:
@@ -1268,7 +1211,7 @@ class ScriptResultView(TableMixin, generic.ObjectView):
 # Markdown
 #
 
-class RenderMarkdownView(View):
+class RenderMarkdownView(LoginRequiredMixin, View):
 
     def post(self, request):
         form = forms.RenderMarkdownForm(request.POST)

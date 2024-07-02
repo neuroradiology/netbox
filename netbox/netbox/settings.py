@@ -502,15 +502,6 @@ EXEMPT_EXCLUDE_MODELS = (
     ('users', 'user'),
 )
 
-# All URLs starting with a string listed here are exempt from login enforcement
-AUTH_EXEMPT_PATHS = (
-    f'/{BASE_PATH}api/',
-    f'/{BASE_PATH}graphql/',
-    f'/{BASE_PATH}login/',
-    f'/{BASE_PATH}oauth/',
-    f'/{BASE_PATH}metrics',
-)
-
 # All URLs starting with a string listed here are exempt from maintenance mode enforcement
 MAINTENANCE_EXEMPT_PATHS = (
     f'/{BASE_PATH}admin/',
@@ -553,7 +544,7 @@ if SENTRY_ENABLED:
 
 # Calculate a unique deployment ID from the secret key
 DEPLOYMENT_ID = hashlib.sha256(SECRET_KEY.encode('utf-8')).hexdigest()[:16]
-CENSUS_URL = 'https://census.netbox.dev/api/v1/'
+CENSUS_URL = 'https://census.netbox.oss.netboxlabs.com/api/v1/'
 CENSUS_PARAMS = {
     'version': RELEASE.full_version,
     'python_version': sys.version.split()[0],
