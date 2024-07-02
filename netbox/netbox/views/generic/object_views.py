@@ -3,7 +3,6 @@ from collections import defaultdict
 from copy import deepcopy
 
 from django.contrib import messages
-from django.core.exceptions import ValidationError
 from django.db import router, transaction
 from django.db.models import ProtectedError, RestrictedError
 from django.db.models.deletion import Collector
@@ -14,6 +13,7 @@ from django.utils.html import escape
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext as _
 
+from dcim.exceptions import UnsupportedCablePath
 from extras.signals import clear_events
 from utilities.error_handlers import handle_protectederror
 from utilities.exceptions import AbortRequest, PermissionsViolation
@@ -309,7 +309,7 @@ class ObjectEditView(GetReturnURLMixin, BaseObjectView):
                 clear_events.send(sender=self)
 
             # Catch any validation errors thrown in the model.save() or form.save() methods
-            except ValidationError as e:
+            except UnsupportedCablePath as e:
                 logger.debug(e.message)
                 form.add_error(None, e.message)
                 clear_events.send(sender=self)

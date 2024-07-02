@@ -27,6 +27,7 @@ __all__ = (
     'CableTermination',
 )
 
+from ..exceptions import UnsupportedCablePath
 
 trace_paths = Signal()
 
@@ -532,7 +533,7 @@ class CablePath(models.Model):
 
         # Ensure all originating terminations are attached to the same link
         if len(terminations) > 1 and not all(t.link == terminations[0].link for t in terminations[1:]):
-            raise ValidationError(_("All originating terminations must start must be attached to the same link"))
+            raise UnsupportedCablePath(_("All originating terminations must start must be attached to the same link"))
 
         path = []
         position_stack = []
@@ -544,12 +545,12 @@ class CablePath(models.Model):
 
             # Terminations must all be of the same type
             if not all(isinstance(t, type(terminations[0])) for t in terminations[1:]):
-                raise ValidationError(_("All mid-span terminations must have the same termination type"))
+                raise UnsupportedCablePath(_("All mid-span terminations must have the same termination type"))
 
             # All mid-span terminations must all be attached to the same device
             if (not isinstance(terminations[0], PathEndpoint) and not
                     all(t.parent_object == terminations[0].parent_object for t in terminations[1:])):
-                raise ValidationError(_("All mid-span terminations must have the same parent object"))
+                raise UnsupportedCablePath(_("All mid-span terminations must have the same parent object"))
 
             # Check for a split path (e.g. rear port fanning out to multiple front ports with
             # different cables attached)
@@ -573,9 +574,9 @@ class CablePath(models.Model):
                 # Otherwise, halt the trace if no link exists
                 break
             if not all(type(link) in (Cable, WirelessLink) for link in links):
-                raise ValidationError(_("All links must be cable or wireless"))
+                raise UnsupportedCablePath(_("All links must be cable or wireless"))
             if not all(isinstance(link, type(links[0])) for link in links):
-                raise ValidationError(_("All links must match first link type"))
+                raise UnsupportedCablePath(_("All links must match first link type"))
 
             # Step 3: Record asymmetric paths as split
             not_connected_terminations = [termination.link for termination in terminations if termination.link is None]
@@ -653,7 +654,7 @@ class CablePath(models.Model):
 
                     # Ensure we have a number of positions equal to the amount of remote terminations
                     if len(remote_terminations) != len(positions):
-                        raise ValidationError(
+                        raise UnsupportedCablePath(
                             _("All positions counts within the path on opposite ends of links must match")
                         )
 
@@ -663,7 +664,7 @@ class CablePath(models.Model):
                         position = positions.pop()
                         q_filter |= Q(rear_port_id=rt.pk, rear_port_position=position)
                     if q_filter is Q():
-                        raise ValidationError(_("Remote termination position filter is missing"))
+                        raise UnsupportedCablePath(_("Remote termination position filter is missing"))
                     front_ports = FrontPort.objects.filter(q_filter)
                 # Obtain the individual front ports based on the termination and position
                 elif position_stack:
