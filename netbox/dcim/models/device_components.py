@@ -912,6 +912,10 @@ class Interface(ModularComponentModel, BaseInterface, CabledObjectModel, PathEnd
         if self.rf_channel and not self.rf_channel_width:
             self.rf_channel_width = get_channel_attr(self.rf_channel, 'width')
 
+        # Clear any tagged vlans set when mode is tagged-all
+        if self.mode == InterfaceModeChoices.MODE_TAGGED_ALL and self.tagged_vlans:
+            self.tagged_vlans.set([])
+
         super().save(*args, **kwargs)
 
     @property

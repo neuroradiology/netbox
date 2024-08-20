@@ -1,3 +1,4 @@
+from django.utils.translation import gettext as _
 from django.contrib.contenttypes.models import ContentType
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
@@ -245,6 +246,13 @@ class InterfaceSerializer(NetBoxModelSerializer, CabledObjectSerializer, Connect
                         'tagged_vlans': f"VLAN {vlan} must belong to the same site as the interface's parent device, "
                                         f"or it must be global."
                     })
+
+        # Validate that tagged-all payload does not include tagged_vlans
+        mode = data.get('mode') or self.instance.mode
+        if mode == InterfaceModeChoices.MODE_TAGGED_ALL and data.get('tagged_vlans'):
+            raise serializers.ValidationError({
+                'tagged_vlans': "Tagged-All interface mode must not include any tagged vlans"
+            })
 
         return super().validate(data)
 
