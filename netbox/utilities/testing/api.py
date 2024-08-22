@@ -230,8 +230,6 @@ class APIViewTestCases:
             obj_perm.object_types.add(ObjectType.objects.get_for_model(self.model))
 
             initial_count = self._get_queryset().count()
-            print(self._get_list_url())
-            print(self.create_data[0])
             response = self.client.post(self._get_list_url(), self.create_data[0], format='json', **self.header)
             self.assertHttpStatus(response, status.HTTP_201_CREATED)
             self.assertEqual(self._get_queryset().count(), initial_count + 1)
