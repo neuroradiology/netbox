@@ -247,13 +247,6 @@ class InterfaceSerializer(NetBoxModelSerializer, CabledObjectSerializer, Connect
                                         f"or it must be global."
                     })
 
-            # Validate that tagged-all payload does not include tagged_vlans
-            mode = data.get('mode') or getattr(self.instance, 'mode', None)
-            if mode == InterfaceModeChoices.MODE_TAGGED_ALL and data.get('tagged_vlans'):
-                raise serializers.ValidationError({
-                    'tagged_vlans': "Tagged-All interface mode must not include any tagged vlans"
-                })
-
         return super().validate(data)
 
 

@@ -904,6 +904,12 @@ class Interface(ModularComponentModel, BaseInterface, CabledObjectModel, PathEnd
                 ).format(untagged_vlan=self.untagged_vlan)
             })
 
+        # Validate that tagged-all payload does not include tagged_vlans
+        if self.mode != InterfaceModeChoices.MODE_TAGGED and self.tagged_vlans:
+            raise ValidationError({
+                'tagged_vlans': "Interface mode does not support including tagged vlans"
+            })
+
     def save(self, *args, **kwargs):
 
         # Set absolute channel attributes from selected options
