@@ -2038,14 +2038,6 @@ class CableTest(APIViewTestCases.APIViewTestCase):
             },
         ]
 
-    def test_cable_termination_pk_exist(self):
-        self.add_permissions('dcim.view_cable')
-        cable = Cable.objects.first()
-        url = reverse('dcim-api:cable-detail', kwargs={'pk': cable.pk})
-        response = self.client.get(url, {}, format='json', **self.header)
-        self.assertHttpStatus(response, status.HTTP_200_OK)
-        self.assertIsNotNone(response.data['a_terminations'][0]['id'])
-
 
 class ConnectedDeviceTest(APITestCase):
 

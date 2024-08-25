@@ -13,6 +13,8 @@ __all__ = (
 
 
 class GenericObjectSerializer(serializers.Serializer):
+    id = serializers.IntegerField(required=False)
+
     """
     Minimal representation of some generic object identified by ContentType and PK.
     """
