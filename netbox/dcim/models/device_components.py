@@ -920,10 +920,6 @@ class Interface(ModularComponentModel, BaseInterface, CabledObjectModel, PathEnd
 
         super().save(*args, **kwargs)
 
-        # Clear any tagged vlans set when mode is tagged-all
-        if self.mode == InterfaceModeChoices.MODE_TAGGED_ALL and self.tagged_vlans.count():
-            self.tagged_vlans.set([])
-
     @property
     def _occupied(self):
         return super()._occupied or bool(self.wireless_link_id)
