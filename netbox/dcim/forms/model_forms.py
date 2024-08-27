@@ -1366,6 +1366,7 @@ class InterfaceForm(InterfaceCommonForm, ModularDeviceComponentForm):
     def clean(self):
         mode = None
         tagged_vlans = []
+        untagged_vlan = None
 
         if self.instance.pk and 'mode' in self.cleaned_data.keys():
             mode = self.cleaned_data.get('mode') if 'mode' in self.cleaned_data.keys() else self.instance.get('mode')
@@ -1378,9 +1379,15 @@ class InterfaceForm(InterfaceCommonForm, ModularDeviceComponentForm):
         elif 'tagged_vlans' in self.cleaned_data.keys():
             tagged_vlans = self.cleaned_data.get('tagged_vlans')
 
+        if self.instance.pk and 'untagged_vlan' in self.cleaned_data.keys():
+            untagged_vlan = self.cleaned_data.get('untagged_vlan') if 'untagged_vlan' in self.cleaned_data.keys() else\
+                self.instance.untagged_vlan
+        elif 'untagged_vlan' in self.cleaned_data.keys():
+            untagged_vlan = self.cleaned_data.get('untagged_vlan')
+
         if mode != InterfaceModeChoices.MODE_TAGGED and tagged_vlans:
             raise forms.ValidationError({
-                'tagged_vlans': "Interface mode does not support including tagged vlans"
+                'tagged_vlans': _("Interface mode does not support including tagged vlans")
             })
 
 

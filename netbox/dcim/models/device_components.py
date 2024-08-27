@@ -894,7 +894,7 @@ class Interface(ModularComponentModel, BaseInterface, CabledObjectModel, PathEnd
                 raise ValidationError({'rf_channel_width': _("Cannot specify custom width with channel selected.")})
 
         # VLAN validation
-        if self.mode is None and self.untagged_vlan:
+        if not self.mode and self.untagged_vlan:
             raise ValidationError({'untagged_vlan': _("Interface mode does not support including an untagged vlan.")})
 
         # Validate untagged VLAN
