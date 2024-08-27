@@ -894,6 +894,8 @@ class Interface(ModularComponentModel, BaseInterface, CabledObjectModel, PathEnd
                 raise ValidationError({'rf_channel_width': _("Cannot specify custom width with channel selected.")})
 
         # VLAN validation
+        if self.mode is None and self.untagged_vlan:
+            raise ValidationError({'untagged_vlan': _("Interface mode does not support including an untagged vlan.")})
 
         # Validate untagged VLAN
         if self.untagged_vlan and self.untagged_vlan.site not in [self.device.site, None]:
@@ -902,12 +904,6 @@ class Interface(ModularComponentModel, BaseInterface, CabledObjectModel, PathEnd
                     "The untagged VLAN ({untagged_vlan}) must belong to the same site as the interface's parent "
                     "device, or it must be global."
                 ).format(untagged_vlan=self.untagged_vlan)
-            })
-
-        # Validate that tagged-all payload does not include tagged_vlans
-        if self.mode != InterfaceModeChoices.MODE_TAGGED and self.tagged_vlans:
-            raise ValidationError({
-                'tagged_vlans': "Interface mode does not support including tagged vlans"
             })
 
     def save(self, *args, **kwargs):

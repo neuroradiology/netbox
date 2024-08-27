@@ -1363,6 +1363,26 @@ class InterfaceForm(InterfaceCommonForm, ModularDeviceComponentForm):
             'mode': '802.1Q Mode',
         }
 
+    def clean(self):
+        mode = None
+        tagged_vlans = []
+
+        if self.instance.pk and 'mode' in self.cleaned_data.keys():
+            mode = self.cleaned_data.get('mode') if 'mode' in self.cleaned_data.keys() else self.instance.get('mode')
+        elif 'mode' in self.cleaned_data.keys():
+            mode = self.cleaned_data.get('mode')
+
+        if self.instance.pk and 'tagged_vlans' in self.cleaned_data.keys():
+            tagged_vlans = self.cleaned_data.get('tagged_vlans') if 'tagged_vlans' in self.cleaned_data.keys() else\
+                self.instance.tagged_vlans.all()
+        elif 'tagged_vlans' in self.cleaned_data.keys():
+            tagged_vlans = self.cleaned_data.get('tagged_vlans')
+
+        if mode != InterfaceModeChoices.MODE_TAGGED and tagged_vlans:
+            raise forms.ValidationError({
+                'tagged_vlans': "Interface mode does not support including tagged vlans"
+            })
+
 
 class FrontPortForm(ModularDeviceComponentForm):
     rear_port = DynamicModelChoiceField(

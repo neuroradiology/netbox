@@ -238,6 +238,27 @@ class InterfaceSerializer(NetBoxModelSerializer, CabledObjectSerializer, Connect
     def validate(self, data):
 
         if not self.nested:
+
+            # Validate 802.1q mode and vlan(s)
+            mode = None
+            tagged_vlans = []
+
+            if self.instance.pk and 'mode' in data.keys():
+                mode = data.get('mode') if 'mode' in self.data.keys() else self.instance.get('mode')
+            elif 'mode' in data.keys():
+                mode = data.get('mode')
+
+            if self.instance.pk and 'tagged_vlans' in data.keys():
+                tagged_vlans = data.get('tagged_vlans') if 'tagged_vlans' in data.keys() else \
+                    self.instance.tagged_vlans.all()
+            elif 'tagged_vlans' in data.keys():
+                tagged_vlans = data.get('tagged_vlans')
+
+            if mode != InterfaceModeChoices.MODE_TAGGED and tagged_vlans:
+                raise serializers.ValidationError({
+                    'tagged_vlans': "Interface mode does not support including tagged vlans"
+                })
+
             # Validate many-to-many VLAN assignments
             device = self.instance.device if self.instance else data.get('device')
             for vlan in data.get('tagged_vlans', []):
