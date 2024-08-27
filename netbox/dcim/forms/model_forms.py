@@ -1364,6 +1364,9 @@ class InterfaceForm(InterfaceCommonForm, ModularDeviceComponentForm):
         }
 
     def clean(self):
+        super().clean()
+
+        # Validate VLAN config
         mode = None
         tagged_vlans = []
         untagged_vlan = None
