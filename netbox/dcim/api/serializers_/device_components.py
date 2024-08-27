@@ -243,22 +243,22 @@ class InterfaceSerializer(NetBoxModelSerializer, CabledObjectSerializer, Connect
             mode = None
             tagged_vlans = []
 
-            if self.instance.pk and 'mode' in data.keys():
-                mode = data.get('mode') if 'mode' in data.keys() else self.instance.get('mode')
-            elif 'mode' in data.keys():
-                mode = data.get('mode')
-
-            if self.instance.pk and 'tagged_vlans' in data.keys():
-                tagged_vlans = data.get('tagged_vlans') if 'tagged_vlans' in data.keys() else \
-                    self.instance.tagged_vlans.all()
-            elif 'tagged_vlans' in data.keys():
-                tagged_vlans = data.get('tagged_vlans')
-
-            if self.instance.pk and 'untagged_vlan' in data.keys():
-                untagged_vlan = data.get('untagged_vlan') if 'untagged_vlan' in data.keys() else \
-                    self.instance.untagged_vlan
-            elif 'untagged_vlan' in data.keys():
-                untagged_vlan = data.get('untagged_vlan')
+            if self.instance:
+                if 'mode' in data.keys():
+                    mode = data.get('mode') if 'mode' in data.keys() else self.instance.get('mode')
+                if 'tagged_vlans' in data.keys():
+                    tagged_vlans = data.get('tagged_vlans') if 'tagged_vlans' in data.keys() else \
+                        self.instance.tagged_vlans.all()
+                if 'untagged_vlan' in data.keys():
+                    untagged_vlan = data.get('untagged_vlan') if 'untagged_vlan' in data.keys() else \
+                        self.instance.untagged_vlan
+            else:
+                if 'mode' in data.keys():
+                    mode = data.get('mode')
+                if 'tagged_vlans' in data.keys():
+                    tagged_vlans = data.get('tagged_vlans')
+                if 'untagged_vlan' in data.keys():
+                    untagged_vlan = data.get('untagged_vlan')
 
             if mode != InterfaceModeChoices.MODE_TAGGED and tagged_vlans:
                 raise serializers.ValidationError({
