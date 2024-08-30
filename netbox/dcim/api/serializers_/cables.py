@@ -21,7 +21,6 @@ __all__ = (
 
 
 class TracedCableSerializer(BaseModelSerializer):
-
     """
     Used only while tracing a cable path.
     """
