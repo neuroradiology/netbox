@@ -5245,6 +5245,12 @@ class CableTestCase(TestCase, ChangeLoggedFilterSetTests):
         params = {'type__empty': 'false'}
         self.assertEqual(self.filterset(params, self.queryset).qs.count(), 6)
 
+    def test_type_empty(self):
+        params = {'type__empty': 'true'}
+        self.assertEqual(self.filterset(params, self.queryset).qs.count(), 8)
+        params = {'type__empty': 'false'}
+        self.assertEqual(self.filterset(params, self.queryset).qs.count(), 6)
+
     def test_status(self):
         params = {'status': [LinkStatusChoices.STATUS_CONNECTED]}
         self.assertEqual(self.filterset(params, self.queryset).qs.count(), 11)
