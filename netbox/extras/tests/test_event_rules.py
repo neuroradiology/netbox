@@ -4,17 +4,20 @@ from unittest.mock import patch
 
 import django_rq
 from django.http import HttpResponse
+from django.test import RequestFactory
 from django.urls import reverse
 from requests import Session
 from rest_framework import status
 
+from core.events import *
 from core.models import ObjectType
 from dcim.choices import SiteStatusChoices
 from dcim.models import Site
-from extras.choices import EventRuleActionChoices, ObjectChangeActionChoices
-from extras.events import enqueue_object, flush_events, serialize_for_event
+from extras.choices import EventRuleActionChoices
+from extras.events import enqueue_event, flush_events, serialize_for_event
 from extras.models import EventRule, Tag, Webhook
 from extras.webhooks import generate_signature, send_webhook
+from netbox.context_managers import event_tracking
 from utilities.testing import APITestCase
 
 
@@ -43,22 +46,22 @@ class EventRuleTest(APITestCase):
         webhook_type = ObjectType.objects.get(app_label='extras', model='webhook')
         event_rules = EventRule.objects.bulk_create((
             EventRule(
-                name='Webhook Event 1',
-                type_create=True,
+                name='Event Rule 1',
+                event_types=[OBJECT_CREATED],
                 action_type=EventRuleActionChoices.WEBHOOK,
                 action_object_type=webhook_type,
                 action_object_id=webhooks[0].id
             ),
             EventRule(
-                name='Webhook Event 2',
-                type_update=True,
+                name='Event Rule 2',
+                event_types=[OBJECT_UPDATED],
                 action_type=EventRuleActionChoices.WEBHOOK,
                 action_object_type=webhook_type,
                 action_object_id=webhooks[0].id
             ),
             EventRule(
-                name='Webhook Event 3',
-                type_delete=True,
+                name='Event Rule 3',
+                event_types=[OBJECT_DELETED],
                 action_type=EventRuleActionChoices.WEBHOOK,
                 action_object_type=webhook_type,
                 action_object_id=webhooks[0].id
@@ -79,8 +82,7 @@ class EventRuleTest(APITestCase):
         """
         event_rule = EventRule(
             name='Event Rule 1',
-            type_create=True,
-            type_update=True,
+            event_types=[OBJECT_CREATED, OBJECT_UPDATED],
             conditions={
                 'and': [
                     {
@@ -128,8 +130,8 @@ class EventRuleTest(APITestCase):
         # Verify that a background task was queued for the new object
         self.assertEqual(self.queue.count, 1)
         job = self.queue.jobs[0]
-        self.assertEqual(job.kwargs['event_rule'], EventRule.objects.get(type_create=True))
-        self.assertEqual(job.kwargs['event'], ObjectChangeActionChoices.ACTION_CREATE)
+        self.assertEqual(job.kwargs['event_rule'], EventRule.objects.get(name='Event Rule 1'))
+        self.assertEqual(job.kwargs['event_type'], OBJECT_CREATED)
         self.assertEqual(job.kwargs['model_name'], 'site')
         self.assertEqual(job.kwargs['data']['id'], response.data['id'])
         self.assertEqual(len(job.kwargs['data']['tags']), len(response.data['tags']))
@@ -178,8 +180,8 @@ class EventRuleTest(APITestCase):
         # Verify that a background task was queued for each new object
         self.assertEqual(self.queue.count, 3)
         for i, job in enumerate(self.queue.jobs):
-            self.assertEqual(job.kwargs['event_rule'], EventRule.objects.get(type_create=True))
-            self.assertEqual(job.kwargs['event'], ObjectChangeActionChoices.ACTION_CREATE)
+            self.assertEqual(job.kwargs['event_rule'], EventRule.objects.get(name='Event Rule 1'))
+            self.assertEqual(job.kwargs['event_type'], OBJECT_CREATED)
             self.assertEqual(job.kwargs['model_name'], 'site')
             self.assertEqual(job.kwargs['data']['id'], response.data[i]['id'])
             self.assertEqual(len(job.kwargs['data']['tags']), len(response.data[i]['tags']))
@@ -209,8 +211,8 @@ class EventRuleTest(APITestCase):
         # Verify that a background task was queued for the updated object
         self.assertEqual(self.queue.count, 1)
         job = self.queue.jobs[0]
-        self.assertEqual(job.kwargs['event_rule'], EventRule.objects.get(type_update=True))
-        self.assertEqual(job.kwargs['event'], ObjectChangeActionChoices.ACTION_UPDATE)
+        self.assertEqual(job.kwargs['event_rule'], EventRule.objects.get(name='Event Rule 2'))
+        self.assertEqual(job.kwargs['event_type'], OBJECT_UPDATED)
         self.assertEqual(job.kwargs['model_name'], 'site')
         self.assertEqual(job.kwargs['data']['id'], site.pk)
         self.assertEqual(len(job.kwargs['data']['tags']), len(response.data['tags']))
@@ -265,8 +267,8 @@ class EventRuleTest(APITestCase):
         # Verify that a background task was queued for each updated object
         self.assertEqual(self.queue.count, 3)
         for i, job in enumerate(self.queue.jobs):
-            self.assertEqual(job.kwargs['event_rule'], EventRule.objects.get(type_update=True))
-            self.assertEqual(job.kwargs['event'], ObjectChangeActionChoices.ACTION_UPDATE)
+            self.assertEqual(job.kwargs['event_rule'], EventRule.objects.get(name='Event Rule 2'))
+            self.assertEqual(job.kwargs['event_type'], OBJECT_UPDATED)
             self.assertEqual(job.kwargs['model_name'], 'site')
             self.assertEqual(job.kwargs['data']['id'], data[i]['id'])
             self.assertEqual(len(job.kwargs['data']['tags']), len(response.data[i]['tags']))
@@ -291,8 +293,8 @@ class EventRuleTest(APITestCase):
         # Verify that a task was queued for the deleted object
         self.assertEqual(self.queue.count, 1)
         job = self.queue.jobs[0]
-        self.assertEqual(job.kwargs['event_rule'], EventRule.objects.get(type_delete=True))
-        self.assertEqual(job.kwargs['event'], ObjectChangeActionChoices.ACTION_DELETE)
+        self.assertEqual(job.kwargs['event_rule'], EventRule.objects.get(name='Event Rule 3'))
+        self.assertEqual(job.kwargs['event_type'], OBJECT_DELETED)
         self.assertEqual(job.kwargs['model_name'], 'site')
         self.assertEqual(job.kwargs['data']['id'], site.pk)
         self.assertEqual(job.kwargs['snapshots']['prechange']['name'], 'Site 1')
@@ -324,8 +326,8 @@ class EventRuleTest(APITestCase):
         # Verify that a background task was queued for each deleted object
         self.assertEqual(self.queue.count, 3)
         for i, job in enumerate(self.queue.jobs):
-            self.assertEqual(job.kwargs['event_rule'], EventRule.objects.get(type_delete=True))
-            self.assertEqual(job.kwargs['event'], ObjectChangeActionChoices.ACTION_DELETE)
+            self.assertEqual(job.kwargs['event_rule'], EventRule.objects.get(name='Event Rule 3'))
+            self.assertEqual(job.kwargs['event_type'], OBJECT_DELETED)
             self.assertEqual(job.kwargs['model_name'], 'site')
             self.assertEqual(job.kwargs['data']['id'], sites[i].pk)
             self.assertEqual(job.kwargs['snapshots']['prechange']['name'], sites[i].name)
@@ -339,7 +341,7 @@ class EventRuleTest(APITestCase):
             A dummy implementation of Session.send() to be used for testing.
             Always returns a 200 HTTP response.
             """
-            event = EventRule.objects.get(type_create=True)
+            event = EventRule.objects.get(name='Event Rule 1')
             webhook = event.action_object
             signature = generate_signature(request.body, webhook.secret)
 
@@ -360,20 +362,64 @@ class EventRuleTest(APITestCase):
             return HttpResponse()
 
         # Enqueue a webhook for processing
-        webhooks_queue = []
+        webhooks_queue = {}
         site = Site.objects.create(name='Site 1', slug='site-1')
-        enqueue_object(
+        enqueue_event(
             webhooks_queue,
             instance=site,
             user=self.user,
             request_id=request_id,
-            action=ObjectChangeActionChoices.ACTION_CREATE
+            event_type=OBJECT_CREATED
         )
-        flush_events(webhooks_queue)
+        flush_events(list(webhooks_queue.values()))
 
         # Retrieve the job from queue
         job = self.queue.jobs[0]
 
         # Patch the Session object with our dummy_send() method, then process the webhook for sending
-        with patch.object(Session, 'send', dummy_send) as mock_send:
+        with patch.object(Session, 'send', dummy_send):
             send_webhook(**job.kwargs)
+
+    def test_duplicate_triggers(self):
+        """
+        Test for erroneous duplicate event triggers resulting from saving an object multiple times
+        within the span of a single request.
+        """
+        url = reverse('dcim:site_add')
+        request = RequestFactory().get(url)
+        request.id = uuid.uuid4()
+        request.user = self.user
+
+        # Test create & update
+        with event_tracking(request):
+            site = Site(name='Site 1', slug='site-1')
+            site.save()
+            site.description = 'foo'
+            site.save()
+        self.assertEqual(self.queue.count, 1, msg="Duplicate jobs found in queue")
+        job = self.queue.get_jobs()[0]
+        self.assertEqual(job.kwargs['event_type'], OBJECT_CREATED)
+        self.queue.empty()
+
+        # Test multiple updates
+        site = Site.objects.create(name='Site 2', slug='site-2')
+        with event_tracking(request):
+            site.description = 'foo'
+            site.save()
+            site.description = 'bar'
+            site.save()
+        self.assertEqual(self.queue.count, 1, msg="Duplicate jobs found in queue")
+        job = self.queue.get_jobs()[0]
+        self.assertEqual(job.kwargs['event_type'], OBJECT_UPDATED)
+        self.queue.empty()
+
+        # Test update & delete
+        site = Site.objects.create(name='Site 3', slug='site-3')
+        with event_tracking(request):
+            site.description = 'foo'
+            site.save()
+            site.delete()
+        self.assertEqual(self.queue.count, 1, msg="Duplicate jobs found in queue")
+        job = self.queue.get_jobs()[0]
+        self.assertEqual(job.kwargs['event_type'], OBJECT_DELETED)
+        self.queue.empty()
