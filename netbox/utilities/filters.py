@@ -171,3 +171,14 @@ class ContentTypeFilter(django_filters.CharFilter):
                 f'{self.field_name}__model': model
             }
         )
+
+
+class EmptyStringFilter(django_filters.BooleanFilter):
+    def filter(self, qs, value):
+        if value in EMPTY_VALUES:
+            return qs
+
+        exclude = self.exclude ^ (value is False)
+        method = qs.exclude if exclude else qs.filter
+
+        return method(**{self.field_name: ""})
