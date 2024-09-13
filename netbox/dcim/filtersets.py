@@ -18,7 +18,7 @@ from tenancy.models import *
 from users.models import User
 from utilities.filters import (
     ContentTypeFilter, MultiValueCharFilter, MultiValueMACAddressFilter, MultiValueNumberFilter, MultiValueWWNFilter,
-    NumericArrayFilter, TreeNodeMultipleChoiceFilter, EmptyStringFilter,
+    NumericArrayFilter, TreeNodeMultipleChoiceFilter, EmptyStringMultipleChoiceFilter,
 )
 from virtualization.models import Cluster, ClusterGroup
 from vpn.models import L2VPN
@@ -1980,11 +1980,8 @@ class CableFilterSet(TenancyFilterSet, NetBoxModelFilterSet):
         method='_unterminated',
         label=_('Unterminated'),
     )
-    type = django_filters.MultipleChoiceFilter(
+    type = EmptyStringMultipleChoiceFilter(
         choices=CableTypeChoices
-    )
-    type__empty = EmptyStringFilter(
-        field_name='type'
     )
     status = django_filters.MultipleChoiceFilter(
         choices=LinkStatusChoices
