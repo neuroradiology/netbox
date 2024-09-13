@@ -173,12 +173,10 @@ class ContentTypeFilter(django_filters.CharFilter):
         )
 
 
-class EmptyStringFilter(django_filters.BooleanFilter):
+class EmptyStringMultipleChoiceFilter(django_filters.MultipleChoiceFilter):
+    empty_value = 'EMPTY'
+
     def filter(self, qs, value):
-        if value in EMPTY_VALUES:
-            return qs
-
-        exclude = self.exclude ^ (value is False)
-        method = qs.exclude if exclude else qs.filter
-
-        return method(**{self.field_name: ""})
+        if self.empty_value in value:
+            value.append('')
+        return super().filter(qs, value)
