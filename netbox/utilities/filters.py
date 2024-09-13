@@ -143,6 +143,14 @@ class NullableCharFieldFilter(django_filters.CharFilter):
         return qs.distinct() if self.distinct else qs
 
 
+class NullableMultipleChoiceFilter(django_filters.MultipleChoiceFilter):
+
+    def filter(self, qs, value):
+        if settings.FILTERS_NULL_CHOICE_VALUE in value:
+            value.append('')
+        return super().filter(qs, value)
+
+
 class NumericArrayFilter(django_filters.NumberFilter):
     """
     Filter based on the presence of an integer within an ArrayField.
@@ -171,12 +179,3 @@ class ContentTypeFilter(django_filters.CharFilter):
                 f'{self.field_name}__model': model
             }
         )
-
-
-class EmptyStringMultipleChoiceFilter(django_filters.MultipleChoiceFilter):
-    empty_value = 'EMPTY'
-
-    def filter(self, qs, value):
-        if self.empty_value in value:
-            value.append('')
-        return super().filter(qs, value)
