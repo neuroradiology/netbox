@@ -19,7 +19,6 @@ __all__ = (
     'parse_numeric_range',
     'restrict_form_fields',
     'parse_csv',
-    'validate_csv',
 )
 
 
@@ -253,32 +252,3 @@ def parse_csv(reader):
         records.append(record)
 
     return headers, records
-
-
-def validate_csv(headers, fields, required_fields):
-    """
-    Validate that parsed csv data conforms to the object's available fields. Raise validation errors
-    if parsed csv data contains invalid headers or does not contain required headers.
-    """
-    # Validate provided column headers
-    is_update = False
-    for field, to_field in headers.items():
-        if field == "id":
-            is_update = True
-            continue
-        if field not in fields:
-            raise forms.ValidationError(_('Unexpected column header "{field}" found.').format(field=field))
-        if to_field and not hasattr(fields[field], 'to_field_name'):
-            raise forms.ValidationError(_('Column "{field}" is not a related object; cannot use dots').format(
-                field=field
-            ))
-        if to_field and not hasattr(fields[field].queryset.model, to_field):
-            raise forms.ValidationError(_('Invalid related object attribute for column "{field}": {to_field}').format(
-                field=field, to_field=to_field
-            ))
-
-    # Validate required fields (if not an update)
-    if not is_update:
-        for f in required_fields:
-            if f not in headers:
-                raise forms.ValidationError(_('Required column header "{header}" not found.').format(header=f))
