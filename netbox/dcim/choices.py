@@ -1473,7 +1473,6 @@ class CableTypeChoices(ChoiceSet):
     TYPE_AOC = 'aoc'
     TYPE_POWER = 'power'
     TYPE_USB = 'usb'
-    TYPE_EMPTY = settings.FILTERS_NULL_CHOICE_VALUE
 
     CHOICES = (
         (
@@ -1510,7 +1509,6 @@ class CableTypeChoices(ChoiceSet):
             _('Other'), (
                 (TYPE_USB, _('USB')),
                 (TYPE_POWER, _('Power')),
-                (settings.FILTERS_NULL_CHOICE_VALUE, _('(unset)')),
             )
         )
     )
