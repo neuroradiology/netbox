@@ -180,11 +180,9 @@ class BaseFilterSet(django_filters.FilterSet):
                     # create the new filter with the same type because there is no guarantee the defined type
                     # is the same as the default type for the field
                     resolve_field(field, lookup_expr)  # Will raise FieldLookupError if the lookup is invalid
-                    if lookup_expr == 'empty':
-                        existing_filter_extra.pop('choices', None)
-                        filter_cls = django_filters.BooleanFilter
-                    else:
-                        filter_cls = type(existing_filter)
+                    for field_to_remove in ('choices', 'null_value'):
+                        existing_filter_extra.pop(field_to_remove, None)
+                    filter_cls = django_filters.BooleanFilter if lookup_expr == 'empty' else type(existing_filter)
                     new_filter = filter_cls(
                         field_name=field_name,
                         lookup_expr=lookup_expr,
