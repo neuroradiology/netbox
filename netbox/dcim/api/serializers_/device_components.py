@@ -239,25 +239,16 @@ class InterfaceSerializer(NetBoxModelSerializer, CabledObjectSerializer, Connect
             tagged_vlans = []
 
             if self.instance:
-                if 'mode' in data.keys():
-                    mode = data.get('mode') if 'mode' in data.keys() else self.instance.get('mode')
-                if 'tagged_vlans' in data.keys():
-                    tagged_vlans = data.get('tagged_vlans') if 'tagged_vlans' in data.keys() else \
-                        self.instance.tagged_vlans.all()
-                if 'untagged_vlan' in data.keys():
-                    untagged_vlan = data.get('untagged_vlan') if 'untagged_vlan' in data.keys() else \
-                        self.instance.untagged_vlan
+                mode = data.get('mode') if 'mode' in data.keys() else self.instance.mode
+                tagged_vlans = data.get('tagged_vlans') if 'tagged_vlans' in data.keys() else \
+                    self.instance.tagged_vlans.all()
             else:
-                if 'mode' in data.keys():
-                    mode = data.get('mode')
-                if 'tagged_vlans' in data.keys():
-                    tagged_vlans = data.get('tagged_vlans')
-                if 'untagged_vlan' in data.keys():
-                    untagged_vlan = data.get('untagged_vlan')
+                mode = data.get('mode', None)
+                tagged_vlans = data.get('tagged_vlans') if 'tagged_vlans' in data.keys() else None
 
             if mode != InterfaceModeChoices.MODE_TAGGED and tagged_vlans:
                 raise serializers.ValidationError({
-                    'tagged_vlans': _("Interface mode does not support including tagged vlans")
+                    'tagged_vlans': _("Interface mode does not support tagged vlans")
                 })
 
             # Validate many-to-many VLAN assignments
