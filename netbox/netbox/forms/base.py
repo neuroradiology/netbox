@@ -2,6 +2,7 @@ import json
 
 from django import forms
 from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import MultipleObjectsReturned
 from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 
@@ -98,6 +99,12 @@ class NetBoxModelImportForm(CSVModelForm, NetBoxModelForm):
 
     def _get_form_field(self, customfield):
         return customfield.to_form_field(for_csv_import=True)
+
+    def _clean_fields(self):
+        try:
+            return super()._clean_fields()
+        except MultipleObjectsReturned as e:
+            self.add_error(None, f'A non-unique value was provided for one or more fields: {e}')
 
 
 class NetBoxModelBulkEditForm(CustomFieldsMixin, forms.Form):
