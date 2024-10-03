@@ -2,7 +2,7 @@ import json
 from collections import defaultdict
 from functools import cached_property
 
-from django.contrib.contenttypes.fields import GenericRelation
+from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelation
 from django.core.validators import ValidationError
 from django.db import models
 from django.utils import timezone
@@ -15,6 +15,7 @@ from extras.choices import *
 from extras.constants import CUSTOMFIELD_EMPTY_VALUES
 from extras.utils import is_taggable
 from netbox.config import get_config
+from netbox.constants import SCOPE_OBJECT_TYPES
 from netbox.registry import registry
 from netbox.signals import post_clean
 from utilities.json import CustomFieldJSONEncoder
@@ -35,6 +36,7 @@ __all__ = (
     'JobsMixin',
     'JournalingMixin',
     'NotificationsMixin',
+    'ScopedMixin',
     'SyncedDataMixin',
     'TagsMixin',
     'register_models',
@@ -653,3 +655,28 @@ def register_models(*models):
             register_model_view(model, 'sync', kwargs={'model': model})(
                 'netbox.views.generic.ObjectSyncDataView'
             )
+
+
+class ScopedMixin(models.Model):
+    """
+    Enables support for Region -> SiteGroup -> Site -> Location mapping
+    """
+    scope_type = models.ForeignKey(
+        to='contenttypes.ContentType',
+        limit_choices_to=SCOPE_OBJECT_TYPES,
+        on_delete=models.PROTECT,
+        related_name='+',
+        blank=True,
+        null=True
+    )
+    scope_id = models.PositiveBigIntegerField(
+        blank=True,
+        null=True
+    )
+    scope = GenericForeignKey(
+        ct_field='scope_type',
+        fk_field='scope_id'
+    )
+
+    class Meta:
+        abstract = True

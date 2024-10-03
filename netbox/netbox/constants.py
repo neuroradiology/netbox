@@ -1,3 +1,6 @@
+from django.db.models import Q
+
+
 # RQ queue names
 RQ_QUEUE_DEFAULT = 'default'
 RQ_QUEUE_HIGH = 'high'
@@ -43,3 +46,13 @@ CENSOR_TOKEN_CHANGED = '***CHANGED***'
 
 # Placeholder text for empty tables
 EMPTY_TABLE_TEXT = 'No results found'
+
+# Scope Type for Region -> SiteGroup -> Site -> Location mapping
+SCOPE_OBJECT_TYPES = Q(
+    app_label='dcim',
+    model__in=(
+        'region',
+        'sitegroup',
+        'site',
+        'location',
+    ))

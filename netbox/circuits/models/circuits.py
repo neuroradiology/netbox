@@ -6,7 +6,7 @@ from django.utils.translation import gettext_lazy as _
 from circuits.choices import *
 from dcim.models import CabledObjectModel
 from netbox.models import ChangeLoggedModel, OrganizationalModel, PrimaryModel
-from netbox.models.features import ContactsMixin, CustomFieldsMixin, CustomLinksMixin, ExportTemplatesMixin, ImageAttachmentsMixin, TagsMixin
+from netbox.models.features import ContactsMixin, CustomFieldsMixin, CustomLinksMixin, ExportTemplatesMixin, ImageAttachmentsMixin, ScopedMixin, TagsMixin
 from utilities.fields import ColorField
 
 __all__ = (
@@ -225,6 +225,7 @@ class CircuitGroupAssignment(CustomFieldsMixin, ExportTemplatesMixin, TagsMixin,
 class CircuitTermination(
     CustomFieldsMixin,
     CustomLinksMixin,
+    ScopedMixin,
     TagsMixin,
     ChangeLoggedModel,
     CabledObjectModel
