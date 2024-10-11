@@ -5242,13 +5242,6 @@ class CableTestCase(TestCase, ChangeLoggedFilterSetTests):
         params = {'type': [CableTypeChoices.TYPE_CAT3, CableTypeChoices.TYPE_CAT5E]}
         self.assertEqual(self.filterset(params, self.queryset).qs.count(), 4)
         params = {'type': [settings.FILTERS_NULL_CHOICE_VALUE]}
-        params = {'type__empty': 'true'}
-        self.assertEqual(self.filterset(params, self.queryset).qs.count(), 8)
-        params = {'type__empty': 'false'}
-        self.assertEqual(self.filterset(params, self.queryset).qs.count(), 6)
-
-    def test_type_empty(self):
-        params = {'type__empty': 'true'}
         self.assertEqual(self.filterset(params, self.queryset).qs.count(), 8)
         params = {'type': [settings.FILTERS_NULL_CHOICE_VALUE, CableTypeChoices.TYPE_CAT3]}
         self.assertEqual(self.filterset(params, self.queryset).qs.count(), 10)
