@@ -50,6 +50,7 @@ __all__ = (
     'RackType',
     'RackReservationType',
     'RackRoleType',
+    'RackTypeType',
     'RearPortType',
     'RearPortTemplateType',
     'RegionType',
@@ -495,12 +496,18 @@ class ModuleType(NetBoxObjectType):
 
 @strawberry_django.type(
     models.ModuleBay,
-    fields='__all__',
+    # fields='__all__',
+    exclude=('parent',),
     filters=ModuleBayFilter
 )
-class ModuleBayType(ComponentType):
+class ModuleBayType(ModularComponentType):
 
     installed_module: Annotated["ModuleType", strawberry.lazy('dcim.graphql.types')] | None
+    children: List[Annotated["ModuleBayType", strawberry.lazy('dcim.graphql.types')]]
+
+    @strawberry_django.field
+    def parent(self) -> Annotated["ModuleBayType", strawberry.lazy('dcim.graphql.types')] | None:
+        return self.parent
 
 
 @strawberry_django.type(
@@ -508,7 +515,7 @@ class ModuleBayType(ComponentType):
     fields='__all__',
     filters=ModuleBayTemplateFilter
 )
-class ModuleBayTemplateType(ComponentTemplateType):
+class ModuleBayTemplateType(ModularComponentTemplateType):
     _name: str
 
 
@@ -561,6 +568,7 @@ class PowerFeedType(NetBoxObjectType, CabledObjectMixin, PathEndpointMixin):
 )
 class PowerOutletType(ModularComponentType, CabledObjectMixin, PathEndpointMixin):
     power_port: Annotated["PowerPortType", strawberry.lazy('dcim.graphql.types')] | None
+    color: str
 
 
 @strawberry_django.type(
@@ -607,6 +615,15 @@ class PowerPortTemplateType(ModularComponentTemplateType):
 
 
 @strawberry_django.type(
+    models.RackType,
+    fields='__all__',
+    filters=RackTypeFilter
+)
+class RackTypeType(NetBoxObjectType):
+    manufacturer: Annotated["ManufacturerType", strawberry.lazy('dcim.graphql.types')]
+
+
+@strawberry_django.type(
     models.Rack,
     fields='__all__',
     filters=RackFilter
@@ -618,6 +635,7 @@ class RackType(VLANGroupsMixin, ImageAttachmentsMixin, ContactsMixin, NetBoxObje
     tenant: Annotated["TenantType", strawberry.lazy('tenancy.graphql.types')] | None
     role: Annotated["RackRoleType", strawberry.lazy('dcim.graphql.types')] | None
 
+    rack_type: Annotated["RackTypeType", strawberry.lazy('dcim.graphql.types')] | None
     reservations: List[Annotated["RackReservationType", strawberry.lazy('dcim.graphql.types')]]
     devices: List[Annotated["DeviceType", strawberry.lazy('dcim.graphql.types')]]
     powerfeeds: List[Annotated["PowerFeedType", strawberry.lazy('dcim.graphql.types')]]

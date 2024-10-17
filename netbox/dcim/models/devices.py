@@ -21,11 +21,12 @@ from extras.querysets import ConfigContextModelQuerySet
 from netbox.choices import ColorChoices
 from netbox.config import ConfigItem
 from netbox.models import OrganizationalModel, PrimaryModel
+from netbox.models.mixins import WeightMixin
 from netbox.models.features import ContactsMixin, ImageAttachmentsMixin
 from utilities.fields import ColorField, CounterCacheField, NaturalOrderingField
 from utilities.tracking import TrackingModelMixin
 from .device_components import *
-from .mixins import RenderConfigMixin, WeightMixin
+from .mixins import RenderConfigMixin
 
 
 __all__ = (
@@ -53,9 +54,6 @@ class Manufacturer(ContactsMixin, OrganizationalModel):
         ordering = ('name',)
         verbose_name = _('manufacturer')
         verbose_name_plural = _('manufacturers')
-
-    def get_absolute_url(self):
-        return reverse('dcim:manufacturer', args=[self.pk])
 
 
 class DeviceType(ImageAttachmentsMixin, PrimaryModel, WeightMixin):
@@ -217,11 +215,8 @@ class DeviceType(ImageAttachmentsMixin, PrimaryModel, WeightMixin):
         self._original_front_image = self.__dict__.get('front_image')
         self._original_rear_image = self.__dict__.get('rear_image')
 
-    def get_absolute_url(self):
-        return reverse('dcim:devicetype', args=[self.pk])
-
     @property
-    def get_full_name(self):
+    def full_name(self):
         return f"{self.manufacturer} {self.model}"
 
     def to_yaml(self):
@@ -293,7 +288,7 @@ class DeviceType(ImageAttachmentsMixin, PrimaryModel, WeightMixin):
         # If editing an existing DeviceType to have a larger u_height, first validate that *all* instances of it have
         # room to expand within their racks. This validation will impose a very high performance penalty when there are
         # many instances to check, but increasing the u_height of a DeviceType should be a very rare occurrence.
-        if self.pk and self.u_height > self._original_u_height:
+        if not self._state.adding and self.u_height > self._original_u_height:
             for d in Device.objects.filter(device_type=self, position__isnull=False):
                 face_required = None if self.is_full_depth else d.face
                 u_available = d.rack.get_available_units(
@@ -310,7 +305,7 @@ class DeviceType(ImageAttachmentsMixin, PrimaryModel, WeightMixin):
                     })
 
         # If modifying the height of an existing DeviceType to 0U, check for any instances assigned to a rack position.
-        elif self.pk and self._original_u_height > 0 and self.u_height == 0:
+        elif not self._state.adding and self._original_u_height > 0 and self.u_height == 0:
             racked_instance_count = Device.objects.filter(
                 device_type=self,
                 position__isnull=False
@@ -388,8 +383,14 @@ class ModuleType(ImageAttachmentsMixin, PrimaryModel, WeightMixin):
         blank=True,
         help_text=_('Discrete part number (optional)')
     )
+    airflow = models.CharField(
+        verbose_name=_('airflow'),
+        max_length=50,
+        choices=ModuleAirflowChoices,
+        blank=True
+    )
 
-    clone_fields = ('manufacturer', 'weight', 'weight_unit',)
+    clone_fields = ('manufacturer', 'weight', 'weight_unit', 'airflow')
     prerequisite_models = (
         'dcim.Manufacturer',
     )
@@ -408,8 +409,9 @@ class ModuleType(ImageAttachmentsMixin, PrimaryModel, WeightMixin):
     def __str__(self):
         return self.model
 
-    def get_absolute_url(self):
-        return reverse('dcim:moduletype', args=[self.pk])
+    @property
+    def full_name(self):
+        return f"{self.manufacturer} {self.model}"
 
     def to_yaml(self):
         data = {
@@ -487,9 +489,6 @@ class DeviceRole(OrganizationalModel):
         verbose_name = _('device role')
         verbose_name_plural = _('device roles')
 
-    def get_absolute_url(self):
-        return reverse('dcim:devicerole', args=[self.pk])
-
 
 class Platform(OrganizationalModel):
     """
@@ -516,9 +515,6 @@ class Platform(OrganizationalModel):
         ordering = ('name',)
         verbose_name = _('platform')
         verbose_name_plural = _('platforms')
-
-    def get_absolute_url(self):
-        return reverse('dcim:platform', args=[self.pk])
 
 
 def update_interface_bridges(device, interface_templates, module=None):
@@ -813,9 +809,6 @@ class Device(
             return f'{self.device_type.manufacturer} {self.device_type.model} ({self.pk})'
         return super().__str__()
 
-    def get_absolute_url(self):
-        return reverse('dcim:device', args=[self.pk])
-
     def clean(self):
         super().clean()
 
@@ -973,6 +966,13 @@ class Device(
                 'vc_position': _("A device assigned to a virtual chassis must have its position defined.")
             })
 
+        if hasattr(self, 'vc_master_for') and self.vc_master_for and self.vc_master_for != self.virtual_chassis:
+            raise ValidationError({
+                'virtual_chassis': _('Device cannot be removed from virtual chassis {virtual_chassis} because it is currently designated as its master.').format(
+                    virtual_chassis=self.vc_master_for
+                )
+            })
+
     def _instantiate_components(self, queryset, bulk_create=True):
         """
         Instantiate components for the device from the specified component templates.
@@ -1036,7 +1036,8 @@ class Device(
             self._instantiate_components(self.device_type.interfacetemplates.all())
             self._instantiate_components(self.device_type.rearporttemplates.all())
             self._instantiate_components(self.device_type.frontporttemplates.all())
-            self._instantiate_components(self.device_type.modulebaytemplates.all())
+            # Disable bulk_create to accommodate MPTT
+            self._instantiate_components(self.device_type.modulebaytemplates.all(), bulk_create=False)
             self._instantiate_components(self.device_type.devicebaytemplates.all())
             # Disable bulk_create to accommodate MPTT
             self._instantiate_components(self.device_type.inventoryitemtemplates.all(), bulk_create=False)
@@ -1181,9 +1182,6 @@ class Module(PrimaryModel, ConfigContextModel):
     def __str__(self):
         return f'{self.module_bay.name}: {self.module_type} ({self.pk})'
 
-    def get_absolute_url(self):
-        return reverse('dcim:module', args=[self.pk])
-
     def get_status_color(self):
         return ModuleStatusChoices.colors.get(self.status)
 
@@ -1196,6 +1194,17 @@ class Module(PrimaryModel, ConfigContextModel):
                     device=self.device
                 )
             )
+
+        # Check for recursion
+        module = self
+        module_bays = []
+        modules = []
+        while module:
+            if module.pk in modules or module.module_bay.pk in module_bays:
+                raise ValidationError(_("A module bay cannot belong to a module installed within it."))
+            modules.append(module.pk)
+            module_bays.append(module.module_bay.pk)
+            module = module.module_bay.module if module.module_bay else None
 
     def save(self, *args, **kwargs):
         is_new = self.pk is None
@@ -1218,7 +1227,8 @@ class Module(PrimaryModel, ConfigContextModel):
             ("powerporttemplates", "powerports", PowerPort),
             ("poweroutlettemplates", "poweroutlets", PowerOutlet),
             ("rearporttemplates", "rearports", RearPort),
-            ("frontporttemplates", "frontports", FrontPort)
+            ("frontporttemplates", "frontports", FrontPort),
+            ("modulebaytemplates", "modulebays", ModuleBay),
         ]:
             create_instances = []
             update_instances = []
@@ -1247,17 +1257,22 @@ class Module(PrimaryModel, ConfigContextModel):
                 if not disable_replication:
                     create_instances.append(template_instance)
 
-            component_model.objects.bulk_create(create_instances)
-            # Emit the post_save signal for each newly created object
-            for component in create_instances:
-                post_save.send(
-                    sender=component_model,
-                    instance=component,
-                    created=True,
-                    raw=False,
-                    using='default',
-                    update_fields=None
-                )
+            if component_model is not ModuleBay:
+                component_model.objects.bulk_create(create_instances)
+                # Emit the post_save signal for each newly created object
+                for component in create_instances:
+                    post_save.send(
+                        sender=component_model,
+                        instance=component,
+                        created=True,
+                        raw=False,
+                        using='default',
+                        update_fields=None
+                    )
+            else:
+                # ModuleBays must be saved individually for MPTT
+                for instance in create_instances:
+                    instance.save()
 
             update_fields = ['module']
             component_model.objects.bulk_update(update_instances, update_fields)
@@ -1315,15 +1330,12 @@ class VirtualChassis(PrimaryModel):
     def __str__(self):
         return self.name
 
-    def get_absolute_url(self):
-        return reverse('dcim:virtualchassis', kwargs={'pk': self.pk})
-
     def clean(self):
         super().clean()
 
         # Verify that the selected master device has been assigned to this VirtualChassis. (Skip when creating a new
         # VirtualChassis.)
-        if self.pk and self.master and self.master not in self.members.all():
+        if not self._state.adding and self.master and self.master not in self.members.all():
             raise ValidationError({
                 'master': _("The selected master ({master}) is not assigned to this virtual chassis.").format(
                     master=self.master
@@ -1416,9 +1428,6 @@ class VirtualDeviceContext(PrimaryModel):
 
     def __str__(self):
         return self.name
-
-    def get_absolute_url(self):
-        return reverse('dcim:virtualdevicecontext', kwargs={'pk': self.pk})
 
     def get_status_color(self):
         return VirtualDeviceContextStatusChoices.colors.get(self.status)

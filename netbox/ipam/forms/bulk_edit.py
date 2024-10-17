@@ -12,6 +12,7 @@ from tenancy.models import Tenant
 from utilities.forms import add_blank_choice
 from utilities.forms.fields import (
     CommentField, ContentTypeChoiceField, DynamicModelChoiceField, DynamicModelMultipleChoiceField, NumericArrayField,
+    NumericRangeArrayField,
 )
 from utilities.forms.rendering import FieldSet
 from utilities.forms.widgets import BulkEditNullBooleanSelect
@@ -221,6 +222,19 @@ class PrefixBulkEditForm(NetBoxModelBulkEditForm):
             'group_id': '$site_group',
         }
     )
+    vlan_group = DynamicModelChoiceField(
+        queryset=VLANGroup.objects.all(),
+        required=False,
+        label=_('VLAN Group')
+    )
+    vlan = DynamicModelChoiceField(
+        queryset=VLAN.objects.all(),
+        required=False,
+        label=_('VLAN'),
+        query_params={
+            'group_id': '$vlan_group',
+        }
+    )
     vrf = DynamicModelChoiceField(
         queryset=VRF.objects.all(),
         required=False,
@@ -269,9 +283,10 @@ class PrefixBulkEditForm(NetBoxModelBulkEditForm):
         FieldSet('tenant', 'status', 'role', 'description'),
         FieldSet('region', 'site_group', 'site', name=_('Site')),
         FieldSet('vrf', 'prefix_length', 'is_pool', 'mark_utilized', name=_('Addressing')),
+        FieldSet('vlan_group', 'vlan', name=_('VLAN Assignment')),
     )
     nullable_fields = (
-        'site', 'vrf', 'tenant', 'role', 'description', 'comments',
+        'site', 'vlan', 'vrf', 'tenant', 'role', 'description', 'comments',
     )
 
 
@@ -408,18 +423,6 @@ class FHRPGroupBulkEditForm(NetBoxModelBulkEditForm):
 
 
 class VLANGroupBulkEditForm(NetBoxModelBulkEditForm):
-    min_vid = forms.IntegerField(
-        min_value=VLAN_VID_MIN,
-        max_value=VLAN_VID_MAX,
-        required=False,
-        label=_('Minimum child VLAN VID')
-    )
-    max_vid = forms.IntegerField(
-        min_value=VLAN_VID_MIN,
-        max_value=VLAN_VID_MAX,
-        required=False,
-        label=_('Maximum child VLAN VID')
-    )
     description = forms.CharField(
         label=_('Description'),
         max_length=200,
@@ -483,10 +486,14 @@ class VLANGroupBulkEditForm(NetBoxModelBulkEditForm):
             'group_id': '$clustergroup',
         }
     )
+    vid_ranges = NumericRangeArrayField(
+        label=_('VLAN ID ranges'),
+        required=False
+    )
 
     model = VLANGroup
     fieldsets = (
-        FieldSet('site', 'min_vid', 'max_vid', 'description'),
+        FieldSet('site', 'vid_ranges', 'description'),
         FieldSet(
             'scope_type', 'region', 'sitegroup', 'site', 'location', 'rack', 'clustergroup', 'cluster', name=_('Scope')
         ),

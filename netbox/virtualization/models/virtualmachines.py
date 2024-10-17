@@ -6,7 +6,6 @@ from django.core.validators import MinValueValidator
 from django.db import models
 from django.db.models import Q, Sum
 from django.db.models.functions import Lower
-from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
 from dcim.models import BaseInterface
@@ -172,9 +171,6 @@ class VirtualMachine(ContactsMixin, ImageAttachmentsMixin, RenderConfigMixin, Co
     def __str__(self):
         return self.name
 
-    def get_absolute_url(self):
-        return reverse('virtualization:virtualmachine', args=[self.pk])
-
     def clean(self):
         super().clean()
 
@@ -184,8 +180,8 @@ class VirtualMachine(ContactsMixin, ImageAttachmentsMixin, RenderConfigMixin, Co
                 'cluster': _('A virtual machine must be assigned to a site and/or cluster.')
             })
 
-        # Validate site for cluster & device
-        if self.cluster and self.cluster.site is not None and self.cluster.site != self.site:
+        # Validate site for cluster & VM
+        if self.cluster and self.site and self.cluster.site and self.cluster.site != self.site:
             raise ValidationError({
                 'cluster': _(
                     'The selected cluster ({cluster}) is not assigned to this site ({site}).'
@@ -205,7 +201,7 @@ class VirtualMachine(ContactsMixin, ImageAttachmentsMixin, RenderConfigMixin, Co
             })
 
         # Validate aggregate disk size
-        if self.pk:
+        if not self._state.adding:
             total_disk = self.virtualdisks.aggregate(Sum('size', default=0))['size__sum']
             if total_disk and self.disk is None:
                 self.disk = total_disk
@@ -377,9 +373,6 @@ class VMInterface(ComponentModel, BaseInterface, TrackingModelMixin):
         verbose_name = _('interface')
         verbose_name_plural = _('interfaces')
 
-    def get_absolute_url(self):
-        return reverse('virtualization:vminterface', kwargs={'pk': self.pk})
-
     def clean(self):
         super().clean()
 
@@ -431,12 +424,9 @@ class VMInterface(ComponentModel, BaseInterface, TrackingModelMixin):
 
 class VirtualDisk(ComponentModel, TrackingModelMixin):
     size = models.PositiveIntegerField(
-        verbose_name=_('size (GB)'),
+        verbose_name=_('size (MB)'),
     )
 
     class Meta(ComponentModel.Meta):
         verbose_name = _('virtual disk')
         verbose_name_plural = _('virtual disks')
-
-    def get_absolute_url(self):
-        return reverse('virtualization:virtualdisk', args=[self.pk])

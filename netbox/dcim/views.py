@@ -31,6 +31,7 @@ from utilities.views import (
     GetRelatedModelsMixin, GetReturnURLMixin, ObjectPermissionRequiredMixin, ViewTab, register_model_view
 )
 from virtualization.filtersets import VirtualMachineFilterSet
+from virtualization.forms import VirtualMachineFilterForm
 from virtualization.models import VirtualMachine
 from virtualization.tables import VirtualMachineTable
 from . import filtersets, forms, tables
@@ -379,7 +380,9 @@ class SiteGroupContactsView(ObjectContactsView):
 #
 
 class SiteListView(generic.ObjectListView):
-    queryset = Site.objects.all()
+    queryset = Site.objects.annotate(
+        device_count=count_related(Device, 'site')
+    )
     filterset = filtersets.SiteFilterSet
     filterset_form = forms.SiteFilterForm
     table = tables.SiteTable
@@ -579,6 +582,58 @@ class RackRoleBulkDeleteView(generic.BulkDeleteView):
 
 
 #
+# RackTypes
+#
+
+class RackTypeListView(generic.ObjectListView):
+    queryset = RackType.objects.annotate(
+        instance_count=count_related(Rack, 'rack_type')
+    )
+    filterset = filtersets.RackTypeFilterSet
+    filterset_form = forms.RackTypeFilterForm
+    table = tables.RackTypeTable
+
+
+@register_model_view(RackType)
+class RackTypeView(GetRelatedModelsMixin, generic.ObjectView):
+    queryset = RackType.objects.all()
+
+    def get_extra_context(self, request, instance):
+        return {
+            'related_models': self.get_related_models(request, instance),
+        }
+
+
+@register_model_view(RackType, 'edit')
+class RackTypeEditView(generic.ObjectEditView):
+    queryset = RackType.objects.all()
+    form = forms.RackTypeForm
+
+
+@register_model_view(RackType, 'delete')
+class RackTypeDeleteView(generic.ObjectDeleteView):
+    queryset = RackType.objects.all()
+
+
+class RackTypeBulkImportView(generic.BulkImportView):
+    queryset = RackType.objects.all()
+    model_form = forms.RackTypeImportForm
+
+
+class RackTypeBulkEditView(generic.BulkEditView):
+    queryset = RackType.objects.all()
+    filterset = filtersets.RackTypeFilterSet
+    table = tables.RackTypeTable
+    form = forms.RackTypeBulkEditForm
+
+
+class RackTypeBulkDeleteView(generic.BulkDeleteView):
+    queryset = RackType.objects.all()
+    filterset = filtersets.RackTypeFilterSet
+    table = tables.RackTypeTable
+
+
+#
 # Racks
 #
 
@@ -679,6 +734,7 @@ class RackRackReservationsView(generic.ObjectChildrenView):
     child_model = RackReservation
     table = tables.RackReservationTable
     filterset = filtersets.RackReservationFilterSet
+    filterset_form = forms.RackReservationFilterForm
     template_name = 'dcim/rack/reservations.html'
     tab = ViewTab(
         label=_('Reservations'),
@@ -697,6 +753,7 @@ class RackNonRackedView(generic.ObjectChildrenView):
     child_model = Device
     table = tables.DeviceTable
     filterset = filtersets.DeviceFilterSet
+    filterset_form = forms.DeviceFilterForm
     template_name = 'dcim/rack/non_racked_devices.html'
     tab = ViewTab(
         label=_('Non-Racked Devices'),
@@ -1255,6 +1312,21 @@ class ModuleTypeRearPortsView(ModuleTypeComponentsView):
         badge=lambda obj: obj.rearporttemplates.count(),
         permission='dcim.view_rearporttemplate',
         weight=520,
+        hide_if_empty=True
+    )
+
+
+@register_model_view(ModuleType, 'modulebays', path='module-bays')
+class ModuleTypeModuleBaysView(ModuleTypeComponentsView):
+    child_model = ModuleBayTemplate
+    table = tables.ModuleBayTemplateTable
+    filterset = filtersets.ModuleBayTemplateFilterSet
+    viewname = 'dcim:moduletype_modulebays'
+    tab = ViewTab(
+        label=_('Module Bays'),
+        badge=lambda obj: obj.modulebaytemplates.count(),
+        permission='dcim.view_modulebaytemplate',
+        weight=570,
         hide_if_empty=True
     )
 
@@ -1835,6 +1907,7 @@ class DeviceConsolePortsView(DeviceComponentsView):
     child_model = ConsolePort
     table = tables.DeviceConsolePortTable
     filterset = filtersets.ConsolePortFilterSet
+    filterset_form = forms.ConsolePortFilterForm
     template_name = 'dcim/device/consoleports.html',
     tab = ViewTab(
         label=_('Console Ports'),
@@ -1850,6 +1923,7 @@ class DeviceConsoleServerPortsView(DeviceComponentsView):
     child_model = ConsoleServerPort
     table = tables.DeviceConsoleServerPortTable
     filterset = filtersets.ConsoleServerPortFilterSet
+    filterset_form = forms.ConsoleServerPortFilterForm
     template_name = 'dcim/device/consoleserverports.html'
     tab = ViewTab(
         label=_('Console Server Ports'),
@@ -1865,6 +1939,7 @@ class DevicePowerPortsView(DeviceComponentsView):
     child_model = PowerPort
     table = tables.DevicePowerPortTable
     filterset = filtersets.PowerPortFilterSet
+    filterset_form = forms.PowerPortFilterForm
     template_name = 'dcim/device/powerports.html'
     tab = ViewTab(
         label=_('Power Ports'),
@@ -1880,6 +1955,7 @@ class DevicePowerOutletsView(DeviceComponentsView):
     child_model = PowerOutlet
     table = tables.DevicePowerOutletTable
     filterset = filtersets.PowerOutletFilterSet
+    filterset_form = forms.PowerOutletFilterForm
     template_name = 'dcim/device/poweroutlets.html'
     tab = ViewTab(
         label=_('Power Outlets'),
@@ -1895,6 +1971,7 @@ class DeviceInterfacesView(DeviceComponentsView):
     child_model = Interface
     table = tables.DeviceInterfaceTable
     filterset = filtersets.InterfaceFilterSet
+    filterset_form = forms.InterfaceFilterForm
     template_name = 'dcim/device/interfaces.html'
     tab = ViewTab(
         label=_('Interfaces'),
@@ -1916,6 +1993,7 @@ class DeviceFrontPortsView(DeviceComponentsView):
     child_model = FrontPort
     table = tables.DeviceFrontPortTable
     filterset = filtersets.FrontPortFilterSet
+    filterset_form = forms.FrontPortFilterForm
     template_name = 'dcim/device/frontports.html'
     tab = ViewTab(
         label=_('Front Ports'),
@@ -1931,6 +2009,7 @@ class DeviceRearPortsView(DeviceComponentsView):
     child_model = RearPort
     table = tables.DeviceRearPortTable
     filterset = filtersets.RearPortFilterSet
+    filterset_form = forms.RearPortFilterForm
     template_name = 'dcim/device/rearports.html'
     tab = ViewTab(
         label=_('Rear Ports'),
@@ -1946,6 +2025,7 @@ class DeviceModuleBaysView(DeviceComponentsView):
     child_model = ModuleBay
     table = tables.DeviceModuleBayTable
     filterset = filtersets.ModuleBayFilterSet
+    filterset_form = forms.ModuleBayFilterForm
     template_name = 'dcim/device/modulebays.html'
     actions = {
         **DEFAULT_ACTION_PERMISSIONS,
@@ -1965,6 +2045,7 @@ class DeviceDeviceBaysView(DeviceComponentsView):
     child_model = DeviceBay
     table = tables.DeviceDeviceBayTable
     filterset = filtersets.DeviceBayFilterSet
+    filterset_form = forms.DeviceBayFilterForm
     template_name = 'dcim/device/devicebays.html'
     actions = {
         **DEFAULT_ACTION_PERMISSIONS,
@@ -1984,6 +2065,7 @@ class DeviceInventoryView(DeviceComponentsView):
     child_model = InventoryItem
     table = tables.DeviceInventoryItemTable
     filterset = filtersets.InventoryItemFilterSet
+    filterset_form = forms.InventoryItemFilterForm
     template_name = 'dcim/device/inventory.html'
     actions = {
         **DEFAULT_ACTION_PERMISSIONS,
@@ -2046,7 +2128,7 @@ class DeviceRenderConfigView(generic.ObjectView):
             try:
                 rendered_config = config_template.render(context=context_data)
             except TemplateError as e:
-                messages.error(request, f"An error occurred while rendering the template: {e}")
+                messages.error(request, _("An error occurred while rendering the template: {error}").format(error=e))
                 rendered_config = traceback.format_exc()
 
         return {
@@ -2062,6 +2144,7 @@ class DeviceVirtualMachinesView(generic.ObjectChildrenView):
     child_model = VirtualMachine
     table = VirtualMachineTable
     filterset = VirtualMachineFilterSet
+    filterset_form = VirtualMachineFilterForm
     tab = ViewTab(
         label=_('Virtual Machines'),
         badge=lambda obj: VirtualMachine.objects.filter(cluster=obj.cluster, device=obj).count(),
@@ -2809,7 +2892,13 @@ class DeviceBayPopulateView(generic.ObjectEditView):
             device_bay.snapshot()
             device_bay.installed_device = form.cleaned_data['installed_device']
             device_bay.save()
-            messages.success(request, "Added {} to {}.".format(device_bay.installed_device, device_bay))
+            messages.success(
+                request,
+                _("Installed device {device} in bay {device_bay}.").format(
+                    device=device_bay.installed_device,
+                    device_bay=device_bay
+                )
+            )
             return_url = self.get_return_url(request)
 
             return redirect(return_url)
@@ -2844,7 +2933,13 @@ class DeviceBayDepopulateView(generic.ObjectEditView):
             removed_device = device_bay.installed_device
             device_bay.installed_device = None
             device_bay.save()
-            messages.success(request, f"{removed_device} has been removed from {device_bay}.")
+            messages.success(
+                request,
+                _("Removed device {device} from bay {device_bay}.").format(
+                    device=removed_device,
+                    device_bay=device_bay
+                )
+            )
             return_url = self.get_return_url(request, device_bay.device)
 
             return redirect(return_url)
@@ -2944,6 +3039,7 @@ class InventoryItemChildrenView(generic.ObjectChildrenView):
     child_model = InventoryItem
     table = tables.InventoryItemTable
     filterset = filtersets.InventoryItemFilterSet
+    filterset_form = forms.InventoryItemFilterForm
     tab = ViewTab(
         label=_('Children'),
         badge=lambda obj: obj.child_items.count(),
@@ -3157,10 +3253,10 @@ class CableEditView(generic.ObjectEditView):
         doesn't currently provide a hook for dynamic class resolution.
         """
         a_terminations_type = CABLE_TERMINATION_TYPES.get(
-            request.GET.get('a_terminations_type') or request.POST.get('a_terminations_type')
+            request.POST.get('a_terminations_type') or request.GET.get('a_terminations_type')
         )
         b_terminations_type = CABLE_TERMINATION_TYPES.get(
-            request.GET.get('b_terminations_type') or request.POST.get('b_terminations_type')
+            request.POST.get('b_terminations_type') or request.GET.get('b_terminations_type')
         )
 
         if obj.pk:
@@ -3411,7 +3507,7 @@ class VirtualChassisAddMemberView(ObjectPermissionRequiredMixin, GetReturnURLMix
 
                 membership_form.save()
                 messages.success(request, mark_safe(
-                    f'Added member <a href="{device.get_absolute_url()}">{escape(device)}</a>'
+                    _('Added member <a href="{url}">{device}</a>').format(url=device.get_absolute_url(), device=escape(device))
                 ))
 
                 if '_addanother' in request.POST:
@@ -3456,7 +3552,10 @@ class VirtualChassisRemoveMemberView(ObjectPermissionRequiredMixin, GetReturnURL
         # Protect master device from being removed
         virtual_chassis = VirtualChassis.objects.filter(master=device).first()
         if virtual_chassis is not None:
-            messages.error(request, f'Unable to remove master device {device} from the virtual chassis.')
+            messages.error(
+                request,
+                _('Unable to remove master device {device} from the virtual chassis.').format(device=device)
+            )
             return redirect(device.get_absolute_url())
 
         if form.is_valid():
@@ -3468,7 +3567,10 @@ class VirtualChassisRemoveMemberView(ObjectPermissionRequiredMixin, GetReturnURL
                 device.vc_priority = None
                 device.save()
 
-            msg = 'Removed {} from virtual chassis {}'.format(device, device.virtual_chassis)
+            msg = _('Removed {device} from virtual chassis {chassis}').format(
+                device=device,
+                chassis=device.virtual_chassis
+            )
             messages.success(request, msg)
 
             return redirect(self.get_return_url(request, device))

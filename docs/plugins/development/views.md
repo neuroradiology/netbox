@@ -196,13 +196,14 @@ Plugins can inject custom content into certain areas of core NetBox views. This 
 | Method              | View        | Description                                         |
 |---------------------|-------------|-----------------------------------------------------|
 | `navbar()`          | All         | Inject content inside the top navigation bar        |
+| `list_buttons()`    | List view   | Add buttons to the top of the page                  |
+| `buttons()`         | Object view | Add buttons to the top of the page                  |
+| `alerts()`          | Object view | Inject content at the top of the page               |
 | `left_page()`       | Object view | Inject content on the left side of the page         |
 | `right_page()`      | Object view | Inject content on the right side of the page        |
 | `full_width_page()` | Object view | Inject content across the entire bottom of the page |
-| `buttons()`         | Object view | Add buttons to the top of the page                  |
-| `list_buttons()`    | List view   | Add buttons to the top of the page                  |
 
-!!! info "The `navbar()` method was introduced in NetBox v4.1."
+!!! info "The `navbar()` and `alerts()` methods were introduced in NetBox v4.1."
 
 Additionally, a `render()` method is available for convenience. This method accepts the name of a template to render, and any additional context data you want to pass. Its use is optional, however.
 

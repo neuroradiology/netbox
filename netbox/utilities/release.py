@@ -1,21 +1,36 @@
 import datetime
 import os
-import yaml
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, field
 from typing import Union
 
+import yaml
 from django.core.exceptions import ImproperlyConfigured
+
+from utilities.datetime import datetime_from_timestamp
 
 RELEASE_PATH = 'release.yaml'
 LOCAL_RELEASE_PATH = 'local/release.yaml'
 
 
 @dataclass
+class FeatureSet:
+    """
+    A map of all available NetBox features.
+    """
+    # Commercial support is provided by NetBox Labs
+    commercial: bool = False
+
+    # Live help center is enabled
+    help_center: bool = False
+
+
+@dataclass
 class ReleaseInfo:
     version: str
-    edition: str = 'Community'
+    edition: str
     published: Union[datetime.date, None] = None
     designation: Union[str, None] = None
+    features: FeatureSet = field(default_factory=FeatureSet)
 
     @property
     def full_version(self):
@@ -26,6 +41,9 @@ class ReleaseInfo:
     @property
     def name(self):
         return f"NetBox {self.edition} v{self.full_version}"
+
+    def asdict(self):
+        return asdict(self)
 
 
 def load_release_data():
@@ -44,14 +62,15 @@ def load_release_data():
             local_data = yaml.safe_load(release_file)
     except FileNotFoundError:
         local_data = {}
-    if type(local_data) is not dict:
-        raise ImproperlyConfigured(
-            f"{LOCAL_RELEASE_PATH}: Local release data must be defined as a dictionary."
-        )
-    data.update(local_data)
+    if local_data is not None:
+        if type(local_data) is not dict:
+            raise ImproperlyConfigured(
+                f"{LOCAL_RELEASE_PATH}: Local release data must be defined as a dictionary."
+            )
+        data.update(local_data)
 
     # Convert the published date to a date object
     if 'published' in data:
-        data['published'] = datetime.date.fromisoformat(data['published'])
+        data['published'] = datetime_from_timestamp(data['published'])
 
     return ReleaseInfo(**data)

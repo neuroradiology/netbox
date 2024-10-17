@@ -7,11 +7,13 @@ from ipam.models import ASN
 from netbox.forms import NetBoxModelForm
 from tenancy.forms import TenancyForm
 from utilities.forms.fields import CommentField, DynamicModelChoiceField, DynamicModelMultipleChoiceField, SlugField
-from utilities.forms.rendering import FieldSet, TabbedGroups
+from utilities.forms.rendering import FieldSet, InlineFields, TabbedGroups
 from utilities.forms.widgets import DatePicker, NumberWithOptions
 
 __all__ = (
     'CircuitForm',
+    'CircuitGroupAssignmentForm',
+    'CircuitGroupForm',
     'CircuitTerminationForm',
     'CircuitTypeForm',
     'ProviderForm',
@@ -106,7 +108,17 @@ class CircuitForm(TenancyForm, NetBoxModelForm):
     comments = CommentField()
 
     fieldsets = (
-        FieldSet('provider', 'provider_account', 'cid', 'type', 'status', 'description', 'tags', name=_('Circuit')),
+        FieldSet(
+            'provider',
+            'provider_account',
+            'cid',
+            'type',
+            'status',
+            InlineFields('distance', 'distance_unit', label=_('Distance')),
+            'description',
+            'tags',
+            name=_('Circuit')
+        ),
         FieldSet('install_date', 'termination_date', 'commit_rate', name=_('Service Parameters')),
         FieldSet('tenant_group', 'tenant', name=_('Tenancy')),
     )
@@ -115,7 +127,7 @@ class CircuitForm(TenancyForm, NetBoxModelForm):
         model = Circuit
         fields = [
             'cid', 'type', 'provider', 'provider_account', 'status', 'install_date', 'termination_date', 'commit_rate',
-            'description', 'tenant_group', 'tenant', 'comments', 'tags',
+            'distance', 'distance_unit', 'description', 'tenant_group', 'tenant', 'comments', 'tags',
         ]
         widgets = {
             'install_date': DatePicker(),
@@ -171,3 +183,36 @@ class CircuitTerminationForm(NetBoxModelForm):
                 options=CircuitTerminationPortSpeedChoices
             ),
         }
+
+
+class CircuitGroupForm(TenancyForm, NetBoxModelForm):
+    slug = SlugField()
+
+    fieldsets = (
+        FieldSet('name', 'slug', 'description', 'tags', name=_('Circuit Group')),
+        FieldSet('tenant_group', 'tenant', name=_('Tenancy')),
+    )
+
+    class Meta:
+        model = CircuitGroup
+        fields = [
+            'name', 'slug', 'description', 'tenant_group', 'tenant', 'tags',
+        ]
+
+
+class CircuitGroupAssignmentForm(NetBoxModelForm):
+    group = DynamicModelChoiceField(
+        label=_('Group'),
+        queryset=CircuitGroup.objects.all(),
+    )
+    circuit = DynamicModelChoiceField(
+        label=_('Circuit'),
+        queryset=Circuit.objects.all(),
+        selector=True
+    )
+
+    class Meta:
+        model = CircuitGroupAssignment
+        fields = [
+            'group', 'circuit', 'priority', 'tags',
+        ]

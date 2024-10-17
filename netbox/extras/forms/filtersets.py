@@ -1,14 +1,15 @@
 from django import forms
-from django.contrib.auth import get_user_model
 from django.utils.translation import gettext_lazy as _
 
 from core.models import ObjectType, DataFile, DataSource
 from dcim.models import DeviceRole, DeviceType, Location, Platform, Region, Site, SiteGroup
 from extras.choices import *
 from extras.models import *
+from netbox.events import get_event_type_choices
 from netbox.forms.base import NetBoxModelFilterSetForm
 from netbox.forms.mixins import SavedFiltersMixin
 from tenancy.models import Tenant, TenantGroup
+from users.models import Group, User
 from utilities.forms import BOOLEAN_WITH_BLANK_CHOICES, FilterForm, add_blank_choice
 from utilities.forms.fields import (
     ContentTypeChoiceField, ContentTypeMultipleChoiceField, DynamicModelMultipleChoiceField, TagFilterField,
@@ -28,6 +29,7 @@ __all__ = (
     'ImageAttachmentFilterForm',
     'JournalEntryFilterForm',
     'LocalConfigContextFilterForm',
+    'NotificationGroupFilterForm',
     'SavedFilterFilterForm',
     'TagFilterForm',
     'WebhookFilterForm',
@@ -38,12 +40,11 @@ class CustomFieldFilterForm(SavedFiltersMixin, FilterForm):
     fieldsets = (
         FieldSet('q', 'filter_id'),
         FieldSet(
-            'type', 'related_object_type_id', 'group_name', 'weight', 'required', 'choice_set_id', 'ui_visible',
-            'ui_editable', 'is_cloneable', name=_('Attributes')
+            'type', 'related_object_type_id', 'group_name', 'weight', 'required', 'unique', 'choice_set_id',
+            name=_('Attributes')
         ),
-        FieldSet(
-            'validation_minimum', 'validation_maximum', 'validation_regex', 'validation_unique', name=_('Validation')
-        ),
+        FieldSet('ui_visible', 'ui_editable', 'is_cloneable', name=_('Behavior')),
+        FieldSet('validation_minimum', 'validation_maximum', 'validation_regex', name=_('Validation')),
     )
     related_object_type_id = ContentTypeMultipleChoiceField(
         queryset=ObjectType.objects.with_feature('custom_fields'),
@@ -65,6 +66,13 @@ class CustomFieldFilterForm(SavedFiltersMixin, FilterForm):
     )
     required = forms.NullBooleanField(
         label=_('Required'),
+        required=False,
+        widget=forms.Select(
+            choices=BOOLEAN_WITH_BLANK_CHOICES
+        )
+    )
+    unique = forms.NullBooleanField(
+        label=_('Must be unique'),
         required=False,
         widget=forms.Select(
             choices=BOOLEAN_WITH_BLANK_CHOICES
@@ -103,13 +111,6 @@ class CustomFieldFilterForm(SavedFiltersMixin, FilterForm):
     validation_regex = forms.CharField(
         label=_('Validation regex'),
         required=False
-    )
-    validation_unique = forms.NullBooleanField(
-        label=_('Must be unique'),
-        required=False,
-        widget=forms.Select(
-            choices=BOOLEAN_WITH_BLANK_CHOICES
-        )
     )
 
 
@@ -272,13 +273,17 @@ class EventRuleFilterForm(NetBoxModelFilterSetForm):
 
     fieldsets = (
         FieldSet('q', 'filter_id', 'tag'),
-        FieldSet('object_type_id', 'action_type', 'enabled', name=_('Attributes')),
-        FieldSet('type_create', 'type_update', 'type_delete', 'type_job_start', 'type_job_end', name=_('Events')),
+        FieldSet('object_type_id', 'event_type', 'action_type', 'enabled', name=_('Attributes')),
     )
     object_type_id = ContentTypeMultipleChoiceField(
         queryset=ObjectType.objects.with_feature('event_rules'),
         required=False,
         label=_('Object type')
+    )
+    event_type = forms.MultipleChoiceField(
+        choices=get_event_type_choices,
+        required=False,
+        label=_('Event type')
     )
     action_type = forms.ChoiceField(
         choices=add_blank_choice(EventRuleActionChoices),
@@ -291,41 +296,6 @@ class EventRuleFilterForm(NetBoxModelFilterSetForm):
         widget=forms.Select(
             choices=BOOLEAN_WITH_BLANK_CHOICES
         )
-    )
-    type_create = forms.NullBooleanField(
-        required=False,
-        widget=forms.Select(
-            choices=BOOLEAN_WITH_BLANK_CHOICES
-        ),
-        label=_('Object creations')
-    )
-    type_update = forms.NullBooleanField(
-        required=False,
-        widget=forms.Select(
-            choices=BOOLEAN_WITH_BLANK_CHOICES
-        ),
-        label=_('Object updates')
-    )
-    type_delete = forms.NullBooleanField(
-        required=False,
-        widget=forms.Select(
-            choices=BOOLEAN_WITH_BLANK_CHOICES
-        ),
-        label=_('Object deletions')
-    )
-    type_job_start = forms.NullBooleanField(
-        required=False,
-        widget=forms.Select(
-            choices=BOOLEAN_WITH_BLANK_CHOICES
-        ),
-        label=_('Job starts')
-    )
-    type_job_end = forms.NullBooleanField(
-        required=False,
-        widget=forms.Select(
-            choices=BOOLEAN_WITH_BLANK_CHOICES
-        ),
-        label=_('Job terminations')
     )
 
 
@@ -481,7 +451,7 @@ class JournalEntryFilterForm(NetBoxModelFilterSetForm):
         widget=DateTimePicker()
     )
     created_by_id = DynamicModelMultipleChoiceField(
-        queryset=get_user_model().objects.all(),
+        queryset=User.objects.all(),
         required=False,
         label=_('User')
     )
@@ -496,3 +466,16 @@ class JournalEntryFilterForm(NetBoxModelFilterSetForm):
         required=False
     )
     tag = TagFilterField(model)
+
+
+class NotificationGroupFilterForm(SavedFiltersMixin, FilterForm):
+    user_id = DynamicModelMultipleChoiceField(
+        queryset=User.objects.all(),
+        required=False,
+        label=_('User')
+    )
+    group_id = DynamicModelMultipleChoiceField(
+        queryset=Group.objects.all(),
+        required=False,
+        label=_('Group')
+    )

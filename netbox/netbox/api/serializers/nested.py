@@ -1,5 +1,3 @@
-from rest_framework import serializers
-
 from extras.models import Tag
 from utilities.api import get_related_object_by_attrs
 from .base import BaseModelSerializer
@@ -21,7 +19,7 @@ class WritableNestedSerializer(BaseModelSerializer):
         return get_related_object_by_attrs(queryset, data)
 
 
-# Declared here for use by PrimaryModelSerializer, but should be imported from extras.api.nested_serializers
+# Declared here for use by PrimaryModelSerializer
 class NestedTagSerializer(WritableNestedSerializer):
 
     class Meta:

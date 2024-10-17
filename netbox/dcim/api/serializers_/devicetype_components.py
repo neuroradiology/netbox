@@ -14,8 +14,8 @@ from utilities.api import get_serializer_for_model
 from wireless.choices import *
 from .devicetypes import DeviceTypeSerializer, ModuleTypeSerializer
 from .manufacturers import ManufacturerSerializer
+from .nested import NestedInterfaceTemplateSerializer
 from .roles import InventoryItemRoleSerializer
-from ..nested_serializers import *
 
 __all__ = (
     'ConsolePortTemplateSerializer',
@@ -253,13 +253,22 @@ class FrontPortTemplateSerializer(ValidatedModelSerializer):
 
 class ModuleBayTemplateSerializer(ValidatedModelSerializer):
     device_type = DeviceTypeSerializer(
-        nested=True
+        nested=True,
+        required=False,
+        allow_null=True,
+        default=None
+    )
+    module_type = ModuleTypeSerializer(
+        nested=True,
+        required=False,
+        allow_null=True,
+        default=None
     )
 
     class Meta:
         model = ModuleBayTemplate
         fields = [
-            'id', 'url', 'display', 'device_type', 'name', 'label', 'position', 'description',
+            'id', 'url', 'display', 'device_type', 'module_type', 'name', 'label', 'position', 'description',
             'created', 'last_updated',
         ]
         brief_fields = ('id', 'url', 'display', 'name', 'description')

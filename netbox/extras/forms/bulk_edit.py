@@ -3,6 +3,7 @@ from django.utils.translation import gettext_lazy as _
 
 from extras.choices import *
 from extras.models import *
+from netbox.events import get_event_type_choices
 from netbox.forms import NetBoxModelBulkEditForm
 from utilities.forms import BulkEditForm, add_blank_choice
 from utilities.forms.fields import ColorField, CommentField, DynamicModelChoiceField
@@ -18,6 +19,7 @@ __all__ = (
     'EventRuleBulkEditForm',
     'ExportTemplateBulkEditForm',
     'JournalEntryBulkEditForm',
+    'NotificationGroupBulkEditForm',
     'SavedFilterBulkEditForm',
     'TagBulkEditForm',
     'WebhookBulkEditForm',
@@ -39,6 +41,11 @@ class CustomFieldBulkEditForm(BulkEditForm):
     )
     required = forms.NullBooleanField(
         label=_('Required'),
+        required=False,
+        widget=BulkEditNullBooleanSelect()
+    )
+    unique = forms.NullBooleanField(
+        label=_('Must be unique'),
         required=False,
         widget=BulkEditNullBooleanSelect()
     )
@@ -77,19 +84,12 @@ class CustomFieldBulkEditForm(BulkEditForm):
         label=_('Validation regex'),
         required=False
     )
-    validation_unique = forms.NullBooleanField(
-        label=_('Must be unique'),
-        required=False,
-        widget=BulkEditNullBooleanSelect()
-    )
     comments = CommentField()
 
     fieldsets = (
-        FieldSet('group_name', 'description', 'weight', 'choice_set', name=_('Attributes')),
+        FieldSet('group_name', 'description', 'weight', 'required', 'unique', 'choice_set', name=_('Attributes')),
         FieldSet('ui_visible', 'ui_editable', 'is_cloneable', name=_('Behavior')),
-        FieldSet(
-            'validation_minimum', 'validation_maximum', 'validation_regex', 'validation_unique', name=_('Validation')
-        ),
+        FieldSet('validation_minimum', 'validation_maximum', 'validation_regex', name=_('Validation')),
     )
     nullable_fields = ('group_name', 'description', 'choice_set')
 
@@ -247,33 +247,18 @@ class EventRuleBulkEditForm(NetBoxModelBulkEditForm):
         required=False,
         widget=BulkEditNullBooleanSelect()
     )
-    type_create = forms.NullBooleanField(
-        label=_('On create'),
+    event_types = forms.MultipleChoiceField(
+        choices=get_event_type_choices(),
         required=False,
-        widget=BulkEditNullBooleanSelect()
+        label=_('Event types')
     )
-    type_update = forms.NullBooleanField(
-        label=_('On update'),
-        required=False,
-        widget=BulkEditNullBooleanSelect()
-    )
-    type_delete = forms.NullBooleanField(
-        label=_('On delete'),
-        required=False,
-        widget=BulkEditNullBooleanSelect()
-    )
-    type_job_start = forms.NullBooleanField(
-        label=_('On job start'),
-        required=False,
-        widget=BulkEditNullBooleanSelect()
-    )
-    type_job_end = forms.NullBooleanField(
-        label=_('On job end'),
-        required=False,
-        widget=BulkEditNullBooleanSelect()
+    description = forms.CharField(
+        label=_('Description'),
+        max_length=200,
+        required=False
     )
 
-    nullable_fields = ('description', 'conditions',)
+    nullable_fields = ('description', 'conditions')
 
 
 class TagBulkEditForm(BulkEditForm):
@@ -343,3 +328,17 @@ class JournalEntryBulkEditForm(BulkEditForm):
         required=False
     )
     comments = CommentField()
+
+
+class NotificationGroupBulkEditForm(BulkEditForm):
+    pk = forms.ModelMultipleChoiceField(
+        queryset=NotificationGroup.objects.all(),
+        widget=forms.MultipleHiddenInput
+    )
+    description = forms.CharField(
+        label=_('Description'),
+        max_length=200,
+        required=False
+    )
+
+    nullable_fields = ('description',)

@@ -1,18 +1,22 @@
 from django import forms
 from django.utils.translation import gettext as _
 
-from circuits.choices import CircuitCommitRateChoices, CircuitStatusChoices, CircuitTerminationSideChoices
+from circuits.choices import CircuitCommitRateChoices, CircuitPriorityChoices, CircuitStatusChoices, CircuitTerminationSideChoices
 from circuits.models import *
 from dcim.models import Region, Site, SiteGroup
 from ipam.models import ASN
+from netbox.choices import DistanceUnitChoices
 from netbox.forms import NetBoxModelFilterSetForm
 from tenancy.forms import TenancyFilterForm, ContactModelFilterForm
+from utilities.forms import add_blank_choice
 from utilities.forms.fields import ColorField, DynamicModelMultipleChoiceField, TagFilterField
 from utilities.forms.rendering import FieldSet
 from utilities.forms.widgets import DatePicker, NumberWithOptions
 
 __all__ = (
     'CircuitFilterForm',
+    'CircuitGroupAssignmentFilterForm',
+    'CircuitGroupFilterForm',
     'CircuitTerminationFilterForm',
     'CircuitTypeFilterForm',
     'ProviderFilterForm',
@@ -112,7 +116,7 @@ class CircuitFilterForm(TenancyFilterForm, ContactModelFilterForm, NetBoxModelFi
     fieldsets = (
         FieldSet('q', 'filter_id', 'tag'),
         FieldSet('provider_id', 'provider_account_id', 'provider_network_id', name=_('Provider')),
-        FieldSet('type_id', 'status', 'install_date', 'termination_date', 'commit_rate', name=_('Attributes')),
+        FieldSet('type_id', 'status', 'install_date', 'termination_date', 'commit_rate', 'distance', 'distance_unit', name=_('Attributes')),
         FieldSet('region_id', 'site_group_id', 'site_id', name=_('Location')),
         FieldSet('tenant_group_id', 'tenant_id', name=_('Tenant')),
         FieldSet('contact', 'contact_role', 'contact_group', name=_('Contacts')),
@@ -186,6 +190,15 @@ class CircuitFilterForm(TenancyFilterForm, ContactModelFilterForm, NetBoxModelFi
             options=CircuitCommitRateChoices
         )
     )
+    distance = forms.DecimalField(
+        label=_('Distance'),
+        required=False,
+    )
+    distance_unit = forms.ChoiceField(
+        label=_('Distance unit'),
+        choices=add_blank_choice(DistanceUnitChoices),
+        required=False
+    )
     tag = TagFilterField(model)
 
 
@@ -228,5 +241,43 @@ class CircuitTerminationFilterForm(NetBoxModelFilterSetForm):
         queryset=Provider.objects.all(),
         required=False,
         label=_('Provider')
+    )
+    tag = TagFilterField(model)
+
+
+class CircuitGroupFilterForm(TenancyFilterForm, NetBoxModelFilterSetForm):
+    model = CircuitGroup
+    fieldsets = (
+        FieldSet('q', 'filter_id', 'tag'),
+        FieldSet('tenant_group_id', 'tenant_id', name=_('Tenant')),
+    )
+    tag = TagFilterField(model)
+
+
+class CircuitGroupAssignmentFilterForm(NetBoxModelFilterSetForm):
+    model = CircuitGroupAssignment
+    fieldsets = (
+        FieldSet('q', 'filter_id', 'tag'),
+        FieldSet('provider_id', 'circuit_id', 'group_id', 'priority', name=_('Assignment')),
+    )
+    provider_id = DynamicModelMultipleChoiceField(
+        queryset=Provider.objects.all(),
+        required=False,
+        label=_('Provider')
+    )
+    circuit_id = DynamicModelMultipleChoiceField(
+        queryset=Circuit.objects.all(),
+        required=False,
+        label=_('Circuit')
+    )
+    group_id = DynamicModelMultipleChoiceField(
+        queryset=CircuitGroup.objects.all(),
+        required=False,
+        label=_('Group')
+    )
+    priority = forms.MultipleChoiceField(
+        label=_('Priority'),
+        choices=CircuitPriorityChoices,
+        required=False
     )
     tag = TagFilterField(model)

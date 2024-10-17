@@ -1,6 +1,6 @@
 from django import forms
 from django.conf import settings
-from django.contrib.auth import get_user_model
+from django.contrib.auth import password_validation
 from django.contrib.postgres.forms import SimpleArrayField
 from django.core.exceptions import FieldError
 from django.utils.safestring import mark_safe
@@ -36,7 +36,6 @@ class UserConfigFormMetaclass(forms.models.ModelFormMetaclass):
         # Emulate a declared field for each supported user preference
         preference_fields = {}
         for field_name, preference in PREFERENCES.items():
-            description = f'{preference.description}<br />' if preference.description else ''
             help_text = f'<code>{field_name}</code>'
             if preference.description:
                 help_text = f'{preference.description}<br />{help_text}'
@@ -152,7 +151,7 @@ class UserTokenForm(forms.ModelForm):
 
 class TokenForm(UserTokenForm):
     user = forms.ModelChoiceField(
-        queryset=get_user_model().objects.order_by('username'),
+        queryset=User.objects.order_by('username'),
         label=_('User')
     )
 
@@ -227,12 +226,16 @@ class UserForm(forms.ModelForm):
         if self.cleaned_data['password'] and self.cleaned_data['password'] != self.cleaned_data['confirm_password']:
             raise forms.ValidationError(_("Passwords do not match! Please check your input and try again."))
 
+        # Enforce password validation rules (if configured)
+        if self.cleaned_data['password']:
+            password_validation.validate_password(self.cleaned_data['password'], self.instance)
+
 
 class GroupForm(forms.ModelForm):
     users = DynamicModelMultipleChoiceField(
         label=_('Users'),
         required=False,
-        queryset=get_user_model().objects.all()
+        queryset=User.objects.all()
     )
     object_permissions = DynamicModelMultipleChoiceField(
         required=False,
@@ -296,7 +299,7 @@ class ObjectPermissionForm(forms.ModelForm):
     users = DynamicModelMultipleChoiceField(
         label=_('Users'),
         required=False,
-        queryset=get_user_model().objects.all()
+        queryset=User.objects.all()
     )
     groups = DynamicModelMultipleChoiceField(
         label=_('Groups'),

@@ -1,5 +1,3 @@
-from rest_framework import serializers
-
 from netbox.api.fields import ChoiceField, SerializedPKRelatedField
 from netbox.api.serializers import NetBoxModelSerializer
 from vpn.choices import *
@@ -22,7 +20,8 @@ class IKEProposalSerializer(NetBoxModelSerializer):
         choices=EncryptionAlgorithmChoices
     )
     authentication_algorithm = ChoiceField(
-        choices=AuthenticationAlgorithmChoices
+        choices=AuthenticationAlgorithmChoices,
+        required=False
     )
     group = ChoiceField(
         choices=DHGroupChoices
@@ -43,7 +42,8 @@ class IKEPolicySerializer(NetBoxModelSerializer):
         choices=IKEVersionChoices
     )
     mode = ChoiceField(
-        choices=IKEModeChoices
+        choices=IKEModeChoices,
+        required=False
     )
     proposals = SerializedPKRelatedField(
         queryset=IKEProposal.objects.all(),

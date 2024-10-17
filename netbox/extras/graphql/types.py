@@ -18,7 +18,10 @@ __all__ = (
     'ExportTemplateType',
     'ImageAttachmentType',
     'JournalEntryType',
+    'NotificationGroupType',
+    'NotificationType',
     'SavedFilterType',
+    'SubscriptionType',
     'TagType',
     'WebhookType',
 )
@@ -81,7 +84,7 @@ class CustomFieldType(ObjectType):
 class CustomFieldChoiceSetType(ObjectType):
 
     choices_for: List[Annotated["CustomFieldType", strawberry.lazy('extras.graphql.types')]]
-    extra_choices: List[str] | None
+    extra_choices: List[List[str]] | None
 
 
 @strawberry_django.type(
@@ -123,11 +126,36 @@ class JournalEntryType(CustomFieldsMixin, TagsMixin, ObjectType):
 
 
 @strawberry_django.type(
+    models.Notification,
+    # filters=NotificationFilter
+)
+class NotificationType(ObjectType):
+    user: Annotated["UserType", strawberry.lazy('users.graphql.types')] | None
+
+
+@strawberry_django.type(
+    models.NotificationGroup,
+    filters=NotificationGroupFilter
+)
+class NotificationGroupType(ObjectType):
+    users: List[Annotated["UserType", strawberry.lazy('users.graphql.types')]]
+    groups: List[Annotated["GroupType", strawberry.lazy('users.graphql.types')]]
+
+
+@strawberry_django.type(
     models.SavedFilter,
     exclude=['content_types',],
     filters=SavedFilterFilter
 )
 class SavedFilterType(ObjectType):
+    user: Annotated["UserType", strawberry.lazy('users.graphql.types')] | None
+
+
+@strawberry_django.type(
+    models.Subscription,
+    # filters=NotificationFilter
+)
+class SubscriptionType(ObjectType):
     user: Annotated["UserType", strawberry.lazy('users.graphql.types')] | None
 
 

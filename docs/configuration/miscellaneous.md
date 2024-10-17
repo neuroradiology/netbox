@@ -96,14 +96,6 @@ The maximum size (in bytes) of an incoming HTTP request (i.e. `GET` or `POST` da
 
 ---
 
-## DJANGO_ADMIN_ENABLED
-
-Default: False
-
-Setting this to True installs the `django.contrib.admin` app and enables the [Django admin UI](https://docs.djangoproject.com/en/5.0/ref/contrib/admin/). This may be necessary to support older plugins which do not integrate with the native NetBox interface.
-
----
-
 ## ENFORCE_GLOBAL_UNIQUE
 
 !!! tip "Dynamic Configuration Parameter"
@@ -119,16 +111,6 @@ By default, NetBox will prevent the creation of duplicate prefixes and IP addres
 Default: `2621440` (2.5 MB)
 
 The maximum amount (in bytes) of uploaded data that will be held in memory before being written to the filesystem. Changing this setting can be useful for example to be able to upload files bigger than 2.5MB to custom scripts for processing.
-
----
-
-## GRAPHQL_ENABLED
-
-!!! tip "Dynamic Configuration Parameter"
-
-Default: True
-
-Setting this to False will disable the GraphQL API.
 
 ---
 

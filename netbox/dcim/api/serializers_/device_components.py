@@ -15,7 +15,7 @@ from netbox.api.fields import ChoiceField, ContentTypeField, SerializedPKRelated
 from netbox.api.serializers import NetBoxModelSerializer, WritableNestedSerializer
 from utilities.api import get_serializer_for_model
 from vpn.api.serializers_.l2vpn import L2VPNTerminationSerializer
-from wireless.api.nested_serializers import NestedWirelessLinkSerializer
+from wireless.api.serializers_.nested import NestedWirelessLinkSerializer
 from wireless.api.serializers_.wirelesslans import WirelessLANSerializer
 from wireless.choices import *
 from wireless.models import WirelessLAN
@@ -23,8 +23,8 @@ from .base import ConnectedEndpointsSerializer
 from .cables import CabledObjectSerializer
 from .devices import DeviceSerializer, ModuleSerializer, VirtualDeviceContextSerializer
 from .manufacturers import ManufacturerSerializer
+from .nested import NestedInterfaceSerializer
 from .roles import InventoryItemRoleSerializer
-from ..nested_serializers import *
 
 __all__ = (
     'ConsolePortSerializer',
@@ -155,7 +155,7 @@ class PowerOutletSerializer(NetBoxModelSerializer, CabledObjectSerializer, Conne
     class Meta:
         model = PowerOutlet
         fields = [
-            'id', 'url', 'display_url', 'display', 'device', 'module', 'name', 'label', 'type', 'power_port',
+            'id', 'url', 'display_url', 'display', 'device', 'module', 'name', 'label', 'type', 'color', 'power_port',
             'feed_leg', 'description', 'mark_connected', 'cable', 'cable_end', 'link_peers', 'link_peers_type',
             'connected_endpoints', 'connected_endpoints_type', 'connected_endpoints_reachable', 'tags', 'custom_fields',
             'created', 'last_updated', '_occupied',
@@ -297,6 +297,13 @@ class FrontPortSerializer(NetBoxModelSerializer, CabledObjectSerializer):
 
 class ModuleBaySerializer(NetBoxModelSerializer):
     device = DeviceSerializer(nested=True)
+    module = ModuleSerializer(
+        nested=True,
+        fields=('id', 'url', 'display'),
+        required=False,
+        allow_null=True,
+        default=None
+    )
     installed_module = ModuleSerializer(
         nested=True,
         fields=('id', 'url', 'display', 'serial', 'description'),
@@ -307,7 +314,7 @@ class ModuleBaySerializer(NetBoxModelSerializer):
     class Meta:
         model = ModuleBay
         fields = [
-            'id', 'url', 'display_url', 'display', 'device', 'name', 'installed_module', 'label', 'position',
+            'id', 'url', 'display_url', 'display', 'device', 'module', 'name', 'installed_module', 'label', 'position',
             'description', 'tags', 'custom_fields', 'created', 'last_updated',
         ]
         brief_fields = ('id', 'url', 'display', 'installed_module', 'name', 'description')
@@ -338,11 +345,12 @@ class InventoryItemSerializer(NetBoxModelSerializer):
     )
     component = serializers.SerializerMethodField(read_only=True, allow_null=True)
     _depth = serializers.IntegerField(source='level', read_only=True)
+    status = ChoiceField(choices=InventoryItemStatusChoices, required=False)
 
     class Meta:
         model = InventoryItem
         fields = [
-            'id', 'url', 'display_url', 'display', 'device', 'parent', 'name', 'label', 'role', 'manufacturer',
+            'id', 'url', 'display_url', 'display', 'device', 'parent', 'name', 'label', 'status', 'role', 'manufacturer',
             'part_id', 'serial', 'asset_tag', 'discovered', 'description', 'component_type', 'component_id',
             'component', 'tags', 'custom_fields', 'created', 'last_updated', '_depth',
         ]

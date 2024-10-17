@@ -34,6 +34,7 @@ __all__ = (
     'ImageAttachmentsMixin',
     'JobsMixin',
     'JournalingMixin',
+    'NotificationsMixin',
     'SyncedDataMixin',
     'TagsMixin',
     'register_models',
@@ -287,8 +288,8 @@ class CustomFieldsMixin(models.Model):
                 ))
 
             # Validate uniqueness if enforced
-            if custom_fields[field_name].validation_unique and value not in CUSTOMFIELD_EMPTY_VALUES:
-                if self._meta.model.objects.filter(**{
+            if custom_fields[field_name].unique and value not in CUSTOMFIELD_EMPTY_VALUES:
+                if self._meta.model.objects.exclude(pk=self.pk).filter(**{
                     f'custom_field_data__{field_name}': value
                 }).exists():
                     raise ValidationError(_("Custom field '{name}' must have a unique value.").format(
@@ -377,6 +378,20 @@ class BookmarksMixin(models.Model):
         abstract = True
 
 
+class NotificationsMixin(models.Model):
+    """
+    Enables support for user notifications.
+    """
+    subscriptions = GenericRelation(
+        to='extras.Subscription',
+        content_type_field='object_type',
+        object_id_field='object_id'
+    )
+
+    class Meta:
+        abstract = True
+
+
 class JobsMixin(models.Model):
     """
     Enables support for job results.
@@ -393,14 +408,9 @@ class JobsMixin(models.Model):
 
     def get_latest_jobs(self):
         """
-        Return a dictionary mapping of the most recent jobs for this instance.
+        Return a list of the most recent jobs for this instance.
         """
-        return {
-            job.name: job
-            for job in self.jobs.filter(
-                status__in=JobStatusChoices.TERMINAL_STATE_CHOICES
-            ).order_by('name', '-created').distinct('name').defer('data')
-        }
+        return self.jobs.filter(status__in=JobStatusChoices.TERMINAL_STATE_CHOICES).order_by('-created').defer('data')
 
 
 class JournalingMixin(models.Model):
@@ -582,13 +592,14 @@ FEATURES_MAP = {
     'custom_fields': CustomFieldsMixin,
     'custom_links': CustomLinksMixin,
     'custom_validation': CustomValidationMixin,
+    'event_rules': EventRulesMixin,
     'export_templates': ExportTemplatesMixin,
     'image_attachments': ImageAttachmentsMixin,
     'jobs': JobsMixin,
     'journaling': JournalingMixin,
+    'notifications': NotificationsMixin,
     'synced_data': SyncedDataMixin,
     'tags': TagsMixin,
-    'event_rules': EventRulesMixin,
 }
 
 registry['model_features'].update({
