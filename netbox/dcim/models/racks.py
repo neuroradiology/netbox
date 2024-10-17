@@ -8,7 +8,6 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Count
-from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
 from dcim.choices import *
@@ -16,13 +15,13 @@ from dcim.constants import *
 from dcim.svg import RackElevationSVG
 from netbox.choices import ColorChoices
 from netbox.models import OrganizationalModel, PrimaryModel
+from netbox.models.mixins import WeightMixin
 from netbox.models.features import ContactsMixin, ImageAttachmentsMixin
 from utilities.conversion import to_grams
 from utilities.data import array_to_string, drange
 from utilities.fields import ColorField, NaturalOrderingField
 from .device_components import PowerPort
 from .devices import Device, Module
-from .mixins import WeightMixin
 from .power import PowerFeed
 
 __all__ = (
@@ -165,9 +164,6 @@ class RackType(RackBase):
     def __str__(self):
         return self.model
 
-    def get_absolute_url(self):
-        return reverse('dcim:racktype', args=[self.pk])
-
     @property
     def full_name(self):
         return f"{self.manufacturer} {self.model}"
@@ -229,9 +225,6 @@ class RackRole(OrganizationalModel):
         ordering = ('name',)
         verbose_name = _('rack role')
         verbose_name_plural = _('rack roles')
-
-    def get_absolute_url(self):
-        return reverse('dcim:rackrole', args=[self.pk])
 
 
 class Rack(ContactsMixin, ImageAttachmentsMixin, RackBase):
@@ -364,9 +357,6 @@ class Rack(ContactsMixin, ImageAttachmentsMixin, RackBase):
             return f'{self.name} ({self.facility_id})'
         return self.name
 
-    def get_absolute_url(self):
-        return reverse('dcim:rack', args=[self.pk])
-
     def clean(self):
         super().clean()
 
@@ -382,7 +372,7 @@ class Rack(ContactsMixin, ImageAttachmentsMixin, RackBase):
         if self.max_weight and not self.weight_unit:
             raise ValidationError(_("Must specify a unit when setting a maximum weight"))
 
-        if self.pk:
+        if not self._state.adding:
             mounted_devices = Device.objects.filter(rack=self).exclude(position__isnull=True).order_by('position')
 
             # Validate that Rack is tall enough to house the highest mounted Device
@@ -468,7 +458,7 @@ class Rack(ContactsMixin, ImageAttachmentsMixin, RackBase):
             }
 
         # Add devices to rack units list
-        if self.pk:
+        if not self._state.adding:
 
             # Retrieve all devices installed within the rack
             devices = Device.objects.prefetch_related(
@@ -698,9 +688,6 @@ class RackReservation(PrimaryModel):
 
     def __str__(self):
         return "Reservation for rack {}".format(self.rack)
-
-    def get_absolute_url(self):
-        return reverse('dcim:rackreservation', args=[self.pk])
 
     def clean(self):
         super().clean()

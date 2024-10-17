@@ -4,8 +4,7 @@ from django.contrib.contenttypes.fields import GenericForeignKey, GenericRelatio
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
-from django.db.models import F, Sum
-from django.urls import reverse
+from django.db.models import Sum
 from django.utils.translation import gettext_lazy as _
 from mptt.models import MPTTModel, TreeForeignKey
 
@@ -21,7 +20,6 @@ from utilities.query_functions import CollateAsChar
 from utilities.tracking import TrackingModelMixin
 from wireless.choices import *
 from wireless.utils import get_channel_attr
-
 
 __all__ = (
     'BaseInterface',
@@ -301,9 +299,6 @@ class ConsolePort(ModularComponentModel, CabledObjectModel, PathEndpoint, Tracki
         verbose_name = _('console port')
         verbose_name_plural = _('console ports')
 
-    def get_absolute_url(self):
-        return reverse('dcim:consoleport', kwargs={'pk': self.pk})
-
 
 class ConsoleServerPort(ModularComponentModel, CabledObjectModel, PathEndpoint, TrackingModelMixin):
     """
@@ -329,9 +324,6 @@ class ConsoleServerPort(ModularComponentModel, CabledObjectModel, PathEndpoint, 
     class Meta(ModularComponentModel.Meta):
         verbose_name = _('console server port')
         verbose_name_plural = _('console server ports')
-
-    def get_absolute_url(self):
-        return reverse('dcim:consoleserverport', kwargs={'pk': self.pk})
 
 
 #
@@ -369,9 +361,6 @@ class PowerPort(ModularComponentModel, CabledObjectModel, PathEndpoint, Tracking
     class Meta(ModularComponentModel.Meta):
         verbose_name = _('power port')
         verbose_name_plural = _('power ports')
-
-    def get_absolute_url(self):
-        return reverse('dcim:powerport', kwargs={'pk': self.pk})
 
     def clean(self):
         super().clean()
@@ -481,15 +470,16 @@ class PowerOutlet(ModularComponentModel, CabledObjectModel, PathEndpoint, Tracki
         blank=True,
         help_text=_('Phase (for three-phase feeds)')
     )
+    color = ColorField(
+        verbose_name=_('color'),
+        blank=True
+    )
 
     clone_fields = ('device', 'module', 'type', 'power_port', 'feed_leg')
 
     class Meta(ModularComponentModel.Meta):
         verbose_name = _('power outlet')
         verbose_name_plural = _('power outlets')
-
-    def get_absolute_url(self):
-        return reverse('dcim:poweroutlet', kwargs={'pk': self.pk})
 
     def clean(self):
         super().clean()
@@ -561,7 +551,7 @@ class BaseInterface(models.Model):
             self.untagged_vlan = None
 
         # Only "tagged" interfaces may have tagged VLANs assigned. ("tagged all" implies all VLANs are assigned.)
-        if self.pk and self.mode != InterfaceModeChoices.MODE_TAGGED:
+        if not self._state.adding and self.mode != InterfaceModeChoices.MODE_TAGGED:
             self.tagged_vlans.clear()
 
         return super().save(*args, **kwargs)
@@ -745,9 +735,6 @@ class Interface(ModularComponentModel, BaseInterface, CabledObjectModel, PathEnd
         ordering = ('device', CollateAsChar('_name'))
         verbose_name = _('interface')
         verbose_name_plural = _('interfaces')
-
-    def get_absolute_url(self):
-        return reverse('dcim:interface', kwargs={'pk': self.pk})
 
     def clean(self):
         super().clean()
@@ -1009,9 +996,6 @@ class FrontPort(ModularComponentModel, CabledObjectModel, TrackingModelMixin):
         verbose_name = _('front port')
         verbose_name_plural = _('front ports')
 
-    def get_absolute_url(self):
-        return reverse('dcim:frontport', kwargs={'pk': self.pk})
-
     def clean(self):
         super().clean()
 
@@ -1067,14 +1051,11 @@ class RearPort(ModularComponentModel, CabledObjectModel, TrackingModelMixin):
         verbose_name = _('rear port')
         verbose_name_plural = _('rear ports')
 
-    def get_absolute_url(self):
-        return reverse('dcim:rearport', kwargs={'pk': self.pk})
-
     def clean(self):
         super().clean()
 
         # Check that positions count is greater than or equal to the number of associated FrontPorts
-        if self.pk:
+        if not self._state.adding:
             frontport_count = self.frontports.count()
             if self.positions < frontport_count:
                 raise ValidationError({
@@ -1126,9 +1107,6 @@ class ModuleBay(ModularComponentModel, TrackingModelMixin, MPTTModel):
     class MPTTMeta:
         order_insertion_by = ('module',)
 
-    def get_absolute_url(self):
-        return reverse('dcim:modulebay', kwargs={'pk': self.pk})
-
     def clean(self):
         super().clean()
 
@@ -1166,9 +1144,6 @@ class DeviceBay(ComponentModel, TrackingModelMixin):
     class Meta(ComponentModel.Meta):
         verbose_name = _('device bay')
         verbose_name_plural = _('device bays')
-
-    def get_absolute_url(self):
-        return reverse('dcim:devicebay', kwargs={'pk': self.pk})
 
     def clean(self):
         super().clean()
@@ -1213,9 +1188,6 @@ class InventoryItemRole(OrganizationalModel):
         verbose_name = _('inventory item role')
         verbose_name_plural = _('inventory item roles')
 
-    def get_absolute_url(self):
-        return reverse('dcim:inventoryitemrole', args=[self.pk])
-
 
 class InventoryItem(MPTTModel, ComponentModel, TrackingModelMixin):
     """
@@ -1245,6 +1217,12 @@ class InventoryItem(MPTTModel, ComponentModel, TrackingModelMixin):
     component = GenericForeignKey(
         ct_field='component_type',
         fk_field='component_id'
+    )
+    status = models.CharField(
+        verbose_name=_('status'),
+        max_length=50,
+        choices=InventoryItemStatusChoices,
+        default=InventoryItemStatusChoices.STATUS_ACTIVE
     )
     role = models.ForeignKey(
         to='dcim.InventoryItemRole',
@@ -1287,7 +1265,7 @@ class InventoryItem(MPTTModel, ComponentModel, TrackingModelMixin):
 
     objects = TreeManager()
 
-    clone_fields = ('device', 'parent', 'role', 'manufacturer', 'part_id',)
+    clone_fields = ('device', 'parent', 'role', 'manufacturer', 'status', 'part_id')
 
     class Meta:
         ordering = ('device__id', 'parent__id', '_name')
@@ -1303,9 +1281,6 @@ class InventoryItem(MPTTModel, ComponentModel, TrackingModelMixin):
         verbose_name = _('inventory item')
         verbose_name_plural = _('inventory items')
 
-    def get_absolute_url(self):
-        return reverse('dcim:inventoryitem', kwargs={'pk': self.pk})
-
     def clean(self):
         super().clean()
 
@@ -1316,7 +1291,7 @@ class InventoryItem(MPTTModel, ComponentModel, TrackingModelMixin):
             })
 
         # Validation for moving InventoryItems
-        if self.pk:
+        if not self._state.adding:
             # Cannot move an InventoryItem to another device if it has a parent
             if self.parent and self.parent.device != self.device:
                 raise ValidationError({
@@ -1336,3 +1311,6 @@ class InventoryItem(MPTTModel, ComponentModel, TrackingModelMixin):
                 raise ValidationError({
                     "device": _("Cannot assign inventory item to component on another device")
                 })
+
+    def get_status_color(self):
+        return InventoryItemStatusChoices.colors.get(self.status)

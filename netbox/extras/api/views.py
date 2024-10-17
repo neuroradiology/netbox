@@ -1,7 +1,7 @@
 from django.http import Http404
 from django.shortcuts import get_object_or_404
-from django.utils.module_loading import import_string
 from django_rq.queues import get_connection
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
@@ -14,8 +14,8 @@ from rq import Worker
 
 from core.models import ObjectType
 from extras import filtersets
-from extras.models import *
 from extras.jobs import ScriptJob
+from extras.models import *
 from netbox.api.authentication import IsAuthenticatedOrLoginNotRequired
 from netbox.api.features import SyncedDataMixin
 from netbox.api.metadata import ContentTypeMetadata
@@ -229,9 +229,13 @@ class ConfigTemplateViewSet(SyncedDataMixin, ConfigTemplateRenderMixin, NetBoxMo
 # Scripts
 #
 
+@extend_schema_view(
+    update=extend_schema(request=serializers.ScriptInputSerializer),
+    partial_update=extend_schema(request=serializers.ScriptInputSerializer),
+)
 class ScriptViewSet(ModelViewSet):
     permission_classes = [IsAuthenticatedOrLoginNotRequired]
-    queryset = Script.objects.prefetch_related('jobs')
+    queryset = Script.objects.all()
     serializer_class = serializers.ScriptSerializer
     filterset_class = filtersets.ScriptFilterSet
 

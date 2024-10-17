@@ -5,14 +5,12 @@ import os
 import platform
 import sys
 import warnings
-from urllib.parse import urlencode, urlsplit
+from urllib.parse import urlencode
 
-import django
 import requests
 from django.contrib.messages import constants as messages
 from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.core.validators import URLValidator
-from django.utils.encoding import force_str
 from django.utils.translation import gettext_lazy as _
 
 from netbox.config import PARAMS as CONFIG_PARAMS
@@ -110,7 +108,6 @@ DEFAULT_PERMISSIONS = getattr(configuration, 'DEFAULT_PERMISSIONS', {
     'users.delete_token': ({'user': '$user'},),
 })
 DEVELOPER = getattr(configuration, 'DEVELOPER', False)
-DJANGO_ADMIN_ENABLED = getattr(configuration, 'DJANGO_ADMIN_ENABLED', False)
 DOCS_ROOT = getattr(configuration, 'DOCS_ROOT', os.path.join(os.path.dirname(BASE_DIR), 'docs'))
 EMAIL = getattr(configuration, 'EMAIL', {})
 EVENTS_PIPELINE = getattr(configuration, 'EVENTS_PIPELINE', (
@@ -200,7 +197,7 @@ if len(SECRET_KEY) < 50:
 if RELEASE_CHECK_URL:
     try:
         URLValidator()(RELEASE_CHECK_URL)
-    except ValidationError as e:
+    except ValidationError:
         raise ImproperlyConfigured(
             "RELEASE_CHECK_URL must be a valid URL. Example: https://api.github.com/repos/netbox-community/netbox"
         )
@@ -252,7 +249,7 @@ if STORAGE_BACKEND is not None:
     # django-storage-swift
     elif STORAGE_BACKEND == 'swift.storage.SwiftStorage':
         try:
-            import swift.utils  # type: ignore
+            import swift.utils  # noqa: F401
         except ModuleNotFoundError as e:
             if getattr(e, 'name') == 'swift':
                 raise ImproperlyConfigured(
@@ -373,7 +370,6 @@ SERVER_EMAIL = EMAIL.get('FROM_EMAIL')
 #
 
 INSTALLED_APPS = [
-    'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
@@ -411,12 +407,9 @@ INSTALLED_APPS = [
 ]
 if not DEBUG:
     INSTALLED_APPS.remove('debug_toolbar')
-if not DJANGO_ADMIN_ENABLED:
-    INSTALLED_APPS.remove('django.contrib.admin')
 
 # Middleware
 MIDDLEWARE = [
-    "strawberry_django.middlewares.debug_toolbar.DebugToolbarMiddleware",
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.locale.LocaleMiddleware',
@@ -431,6 +424,13 @@ MIDDLEWARE = [
     'netbox.middleware.CoreMiddleware',
     'netbox.middleware.MaintenanceModeMiddleware',
 ]
+
+if DEBUG:
+    MIDDLEWARE = [
+        "strawberry_django.middlewares.debug_toolbar.DebugToolbarMiddleware",
+        *MIDDLEWARE,
+    ]
+
 if METRICS_ENABLED:
     # If metrics are enabled, add the before & after Prometheus middleware
     MIDDLEWARE = [
@@ -543,7 +543,6 @@ EXEMPT_EXCLUDE_MODELS = (
 
 # All URLs starting with a string listed here are exempt from maintenance mode enforcement
 MAINTENANCE_EXEMPT_PATHS = (
-    f'/{BASE_PATH}admin/',
     f'/{BASE_PATH}extras/config-revisions/',  # Allow modifying the configuration
     LOGIN_URL,
     LOGIN_REDIRECT_URL,

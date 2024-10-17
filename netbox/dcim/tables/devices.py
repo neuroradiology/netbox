@@ -512,6 +512,7 @@ class PowerOutletTable(ModularDeviceComponentTable, PathEndpointTable):
         verbose_name=_('Power Port'),
         linkify=True
     )
+    color = columns.ColorColumn()
     tags = columns.TagColumn(
         url_name='dcim:poweroutlet_list'
     )
@@ -520,10 +521,10 @@ class PowerOutletTable(ModularDeviceComponentTable, PathEndpointTable):
         model = models.PowerOutlet
         fields = (
             'pk', 'id', 'name', 'device', 'module_bay', 'module', 'label', 'type', 'description', 'power_port',
-            'feed_leg', 'mark_connected', 'cable', 'cable_color', 'link_peer', 'connection', 'inventory_items',
+            'color', 'feed_leg', 'mark_connected', 'cable', 'cable_color', 'link_peer', 'connection', 'inventory_items',
             'tags', 'created', 'last_updated',
         )
-        default_columns = ('pk', 'name', 'device', 'label', 'type', 'power_port', 'feed_leg', 'description')
+        default_columns = ('pk', 'name', 'device', 'label', 'type', 'color', 'power_port', 'feed_leg', 'description')
 
 
 class DevicePowerOutletTable(PowerOutletTable):
@@ -540,11 +541,11 @@ class DevicePowerOutletTable(PowerOutletTable):
     class Meta(CableTerminationTable.Meta, DeviceComponentTable.Meta):
         model = models.PowerOutlet
         fields = (
-            'pk', 'id', 'name', 'module_bay', 'module', 'label', 'type', 'power_port', 'feed_leg', 'description',
-            'mark_connected', 'cable', 'cable_color', 'link_peer', 'connection', 'tags', 'actions',
+            'pk', 'id', 'name', 'module_bay', 'module', 'label', 'type', 'color', 'power_port', 'feed_leg',
+            'description', 'mark_connected', 'cable', 'cable_color', 'link_peer', 'connection', 'tags', 'actions',
         )
         default_columns = (
-            'pk', 'name', 'label', 'type', 'power_port', 'feed_leg', 'description', 'cable', 'connection',
+            'pk', 'name', 'label', 'type', 'color', 'power_port', 'feed_leg', 'description', 'cable', 'connection',
         )
 
 
@@ -587,6 +588,9 @@ class BaseInterfaceTable(NetBoxTable):
 
     def value_ip_addresses(self, value):
         return ",".join([str(obj.address) for obj in value.all()])
+
+    def value_tagged_vlans(self, value):
+        return ",".join([str(obj) for obj in value.all()])
 
 
 class InterfaceTable(ModularDeviceComponentTable, BaseInterfaceTable, PathEndpointTable):
@@ -684,7 +688,8 @@ class DeviceInterfaceTable(InterfaceTable):
             'data-virtual': lambda record: "true" if record.is_virtual else "false",
             'data-mark-connected': lambda record: "true" if record.mark_connected else "false",
             'data-cable-status': lambda record: record.cable.status if record.cable else "",
-            'data-type': lambda record: record.type
+            'data-type': lambda record: record.type,
+            'data-connected': lambda record: "connected" if record.mark_connected or record.cable else "disconnected"
         }
 
 
@@ -945,6 +950,9 @@ class InventoryItemTable(DeviceComponentTable):
         verbose_name=_('Discovered'),
         false_mark=None
     )
+    status = columns.ChoiceFieldColumn(
+        verbose_name=_('Status'),
+    )
     parent = tables.Column(
         linkify=True,
         verbose_name=_('Parent'),
@@ -957,11 +965,11 @@ class InventoryItemTable(DeviceComponentTable):
     class Meta(NetBoxTable.Meta):
         model = models.InventoryItem
         fields = (
-            'pk', 'id', 'name', 'device', 'parent', 'component', 'label', 'role', 'manufacturer', 'part_id', 'serial',
+            'pk', 'id', 'name', 'device', 'parent', 'component', 'label', 'status', 'role', 'manufacturer', 'part_id', 'serial',
             'asset_tag', 'description', 'discovered', 'tags', 'created', 'last_updated',
         )
         default_columns = (
-            'pk', 'name', 'device', 'label', 'role', 'manufacturer', 'part_id', 'serial', 'asset_tag',
+            'pk', 'name', 'device', 'label', 'status', 'role', 'manufacturer', 'part_id', 'serial', 'asset_tag',
         )
 
 
@@ -977,11 +985,11 @@ class DeviceInventoryItemTable(InventoryItemTable):
     class Meta(NetBoxTable.Meta):
         model = models.InventoryItem
         fields = (
-            'pk', 'id', 'name', 'label', 'role', 'manufacturer', 'part_id', 'serial', 'asset_tag', 'component',
+            'pk', 'id', 'name', 'label', 'status', 'role', 'manufacturer', 'part_id', 'serial', 'asset_tag', 'component',
             'description', 'discovered', 'tags', 'actions',
         )
         default_columns = (
-            'pk', 'name', 'label', 'role', 'manufacturer', 'part_id', 'serial', 'asset_tag', 'component',
+            'pk', 'name', 'label', 'status', 'role', 'manufacturer', 'part_id', 'serial', 'asset_tag', 'component',
         )
 
 

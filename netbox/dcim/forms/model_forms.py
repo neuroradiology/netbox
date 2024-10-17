@@ -954,7 +954,7 @@ class PowerOutletTemplateForm(ModularComponentTemplateForm):
         queryset=PowerPortTemplate.objects.all(),
         required=False,
         query_params={
-            'devicetype_id': '$device_type',
+            'device_type_id': '$device_type',
         }
     )
 
@@ -975,8 +975,8 @@ class InterfaceTemplateForm(ModularComponentTemplateForm):
         queryset=InterfaceTemplate.objects.all(),
         required=False,
         query_params={
-            'devicetype_id': '$device_type',
-            'moduletype_id': '$module_type',
+            'device_type_id': '$device_type',
+            'module_type_id': '$module_type',
         }
     )
 
@@ -1001,8 +1001,8 @@ class FrontPortTemplateForm(ModularComponentTemplateForm):
         queryset=RearPortTemplate.objects.all(),
         required=False,
         query_params={
-            'devicetype_id': '$device_type',
-            'moduletype_id': '$module_type',
+            'device_type_id': '$device_type',
+            'module_type_id': '$module_type',
         }
     )
 
@@ -1063,7 +1063,7 @@ class InventoryItemTemplateForm(ComponentTemplateForm):
         queryset=InventoryItemTemplate.objects.all(),
         required=False,
         query_params={
-            'devicetype_id': '$device_type'
+            'device_type_id': '$device_type'
         }
     )
     role = DynamicModelChoiceField(
@@ -1285,7 +1285,7 @@ class PowerOutletForm(ModularDeviceComponentForm):
 
     fieldsets = (
         FieldSet(
-            'device', 'module', 'name', 'label', 'type', 'power_port', 'feed_leg', 'mark_connected', 'description',
+            'device', 'module', 'name', 'label', 'type', 'color', 'power_port', 'feed_leg', 'mark_connected', 'description',
             'tags',
         ),
     )
@@ -1293,7 +1293,7 @@ class PowerOutletForm(ModularDeviceComponentForm):
     class Meta:
         model = PowerOutlet
         fields = [
-            'device', 'module', 'name', 'label', 'type', 'power_port', 'feed_leg', 'mark_connected', 'description',
+            'device', 'module', 'name', 'label', 'type', 'color', 'power_port', 'feed_leg', 'mark_connected', 'description',
             'tags',
         ]
 
@@ -1351,7 +1351,8 @@ class InterfaceForm(InterfaceCommonForm, ModularDeviceComponentForm):
     vlan_group = DynamicModelChoiceField(
         queryset=VLANGroup.objects.all(),
         required=False,
-        label=_('VLAN group')
+        label=_('VLAN group'),
+        help_text=_("Filter VLANs available for assignment by group.")
     )
     untagged_vlan = DynamicModelChoiceField(
         queryset=VLAN.objects.all(),
@@ -1575,7 +1576,7 @@ class InventoryItemForm(DeviceComponentForm):
     )
 
     fieldsets = (
-        FieldSet('device', 'parent', 'name', 'label', 'role', 'description', 'tags', name=_('Inventory Item')),
+        FieldSet('device', 'parent', 'name', 'label', 'status', 'role', 'description', 'tags', name=_('Inventory Item')),
         FieldSet('manufacturer', 'part_id', 'serial', 'asset_tag', name=_('Hardware')),
         FieldSet(
             TabbedGroups(
@@ -1595,7 +1596,7 @@ class InventoryItemForm(DeviceComponentForm):
         model = InventoryItem
         fields = [
             'device', 'parent', 'name', 'label', 'role', 'manufacturer', 'part_id', 'serial', 'asset_tag',
-            'description', 'tags',
+            'status', 'description', 'tags',
         ]
 
     def __init__(self, *args, **kwargs):

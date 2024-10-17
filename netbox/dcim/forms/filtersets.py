@@ -7,6 +7,7 @@ from dcim.models import *
 from extras.forms import LocalConfigContextFilterForm
 from extras.models import ConfigTemplate
 from ipam.models import ASN, VRF
+from netbox.choices import *
 from netbox.forms import NetBoxModelFilterSetForm
 from tenancy.forms import ContactModelFilterForm, TenancyFilterForm
 from users.models import User
@@ -34,7 +35,6 @@ __all__ = (
     'InventoryItemRoleFilterForm',
     'LocationFilterForm',
     'ManufacturerFilterForm',
-    'ModuleFilterForm',
     'ModuleFilterForm',
     'ModuleBayFilterForm',
     'ModuleTypeFilterForm',
@@ -1304,7 +1304,7 @@ class PowerOutletFilterForm(PathEndpointFilterForm, DeviceComponentFilterForm):
     model = PowerOutlet
     fieldsets = (
         FieldSet('q', 'filter_id', 'tag'),
-        FieldSet('name', 'label', 'type', name=_('Attributes')),
+        FieldSet('name', 'label', 'type', 'color', name=_('Attributes')),
         FieldSet('region_id', 'site_group_id', 'site_id', 'location_id', 'rack_id', name=_('Location')),
         FieldSet(
             'device_type_id', 'device_role_id', 'device_id', 'device_status', 'virtual_chassis_id',
@@ -1318,6 +1318,10 @@ class PowerOutletFilterForm(PathEndpointFilterForm, DeviceComponentFilterForm):
         required=False
     )
     tag = TagFilterField(model)
+    color = ColorField(
+        label=_('Color'),
+        required=False
+    )
 
 
 class InterfaceFilterForm(PathEndpointFilterForm, DeviceComponentFilterForm):
@@ -1552,6 +1556,11 @@ class InventoryItemFilterForm(DeviceComponentFilterForm):
         widget=forms.Select(
             choices=BOOLEAN_WITH_BLANK_CHOICES
         )
+    )
+    status = forms.MultipleChoiceField(
+        label=_('Status'),
+        choices=InventoryItemStatusChoices,
+        required=False
     )
     tag = TagFilterField(model)
 

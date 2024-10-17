@@ -8,6 +8,7 @@ from dcim.constants import *
 from dcim.models import *
 from extras.models import ConfigTemplate
 from ipam.models import ASN, VLAN, VLANGroup, VRF
+from netbox.choices import *
 from netbox.forms import NetBoxModelBulkEditForm
 from tenancy.models import Tenant
 from users.models import User
@@ -1361,7 +1362,7 @@ class PowerPortBulkEditForm(
 
 class PowerOutletBulkEditForm(
     ComponentBulkEditForm,
-    form_from_model(PowerOutlet, ['label', 'type', 'feed_leg', 'power_port', 'mark_connected', 'description'])
+    form_from_model(PowerOutlet, ['label', 'type', 'color', 'feed_leg', 'power_port', 'mark_connected', 'description'])
 ):
     mark_connected = forms.NullBooleanField(
         label=_('Mark connected'),
@@ -1371,7 +1372,7 @@ class PowerOutletBulkEditForm(
 
     model = PowerOutlet
     fieldsets = (
-        FieldSet('module', 'type', 'label', 'description', 'mark_connected'),
+        FieldSet('module', 'type', 'label', 'description', 'mark_connected', 'color'),
         FieldSet('feed_leg', 'power_port', name=_('Power')),
     )
     nullable_fields = ('module', 'label', 'type', 'feed_leg', 'power_port', 'description')
@@ -1661,10 +1662,16 @@ class InventoryItemBulkEditForm(
         queryset=Manufacturer.objects.all(),
         required=False
     )
+    status = forms.ChoiceField(
+        label=_('Status'),
+        choices=add_blank_choice(InventoryItemStatusChoices),
+        required=False,
+        initial=''
+    )
 
     model = InventoryItem
     fieldsets = (
-        FieldSet('device', 'label', 'role', 'manufacturer', 'part_id', 'description'),
+        FieldSet('device', 'label', 'role', 'manufacturer', 'part_id', 'status', 'description'),
     )
     nullable_fields = ('label', 'role', 'manufacturer', 'part_id', 'description')
 

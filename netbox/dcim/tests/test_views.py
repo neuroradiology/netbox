@@ -10,7 +10,7 @@ from dcim.choices import *
 from dcim.constants import *
 from dcim.models import *
 from ipam.models import ASN, RIR, VLAN, VRF
-from netbox.choices import CSVDelimiterChoices, ImportFormatChoices
+from netbox.choices import CSVDelimiterChoices, ImportFormatChoices, WeightUnitChoices
 from tenancy.models import Tenant
 from users.models import User
 from utilities.testing import ViewTestCases, create_tags, create_test_device, post_data
@@ -2571,7 +2571,7 @@ class InterfaceTestCase(ViewTestCases.DeviceComponentViewTestCase):
         }
 
         cls.csv_data = (
-            f"device,name,type,vrf.pk,poe_mode,poe_type",
+            "device,name,type,vrf.pk,poe_mode,poe_type",
             f"Device 1,Interface 4,1000base-t,{vrfs[0].pk},pse,type1-ieee802.3af",
             f"Device 1,Interface 5,1000base-t,{vrfs[0].pk},pse,type1-ieee802.3af",
             f"Device 1,Interface 6,1000base-t,{vrfs[0].pk},pse,type1-ieee802.3af",
@@ -2903,6 +2903,7 @@ class InventoryItemTestCase(ViewTestCases.DeviceComponentViewTestCase):
             'part_id': '123456',
             'serial': '123ABC',
             'asset_tag': 'ABC123',
+            'status': InventoryItemStatusChoices.STATUS_ACTIVE,
             'description': 'An inventory item',
             'tags': [t.pk for t in tags],
         }
@@ -2916,6 +2917,7 @@ class InventoryItemTestCase(ViewTestCases.DeviceComponentViewTestCase):
             'discovered': False,
             'part_id': '123456',
             'serial': '123ABC',
+            'status': InventoryItemStatusChoices.STATUS_ACTIVE,
             'description': 'An inventory item',
             'tags': [t.pk for t in tags],
         }
@@ -2927,10 +2929,10 @@ class InventoryItemTestCase(ViewTestCases.DeviceComponentViewTestCase):
         }
 
         cls.csv_data = (
-            "device,name,parent",
-            "Device 1,Inventory Item 4,Inventory Item 1",
-            "Device 1,Inventory Item 5,Inventory Item 2",
-            "Device 1,Inventory Item 6,Inventory Item 3",
+            "device,name,parent,status",
+            "Device 1,Inventory Item 4,Inventory Item 1,active",
+            "Device 1,Inventory Item 5,Inventory Item 2,planned",
+            "Device 1,Inventory Item 6,Inventory Item 3,failed",
         )
 
         cls.csv_update_data = (
