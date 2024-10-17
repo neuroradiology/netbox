@@ -43,7 +43,11 @@ class InterfaceCommonForm(forms.Form):
 
         parent_field = 'device' if 'device' in self.cleaned_data else 'virtual_machine'
         interface_mode = get_field_value(self, parent_field)
-        tagged_vlans = get_field_value(self, 'tagged_vlans') if 'tagged_vlans' in self.fields.keys() else []
+        if 'tagged_vlans' in self.fields.keys():
+            tagged_vlans = self.cleaned_data.get('tagged_vlans') if self.is_bound else \
+                self.get_initial_for_field(self.fields['tagged_vlans'], 'tagged_vlans')
+        else:
+            tagged_vlans = []
 
         # Untagged interfaces cannot be assigned tagged VLANs
         if self.cleaned_data['mode'] == InterfaceModeChoices.MODE_ACCESS and tagged_vlans:
