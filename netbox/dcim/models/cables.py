@@ -546,7 +546,6 @@ class CablePath(models.Model):
         is_split = False
 
         while terminations:
-            prev_path = path.copy()
 
             # Terminations must all be of the same type
             assert all(isinstance(t, type(terminations[0])) for t in terminations[1:])
@@ -588,9 +587,19 @@ class CablePath(models.Model):
 
             # Step 4: Record the links, keeping cables in order to allow for SVG rendering
             cables = []
+            loop_detected = False
+
             for link in links:
-                if object_to_path_node(link) not in cables:
-                    cables.append(object_to_path_node(link))
+                cable = object_to_path_node(link)
+                if cable not in cables:
+                    # Detect infinite loop in cabling topology
+                    for node in path:
+                        if cable in node:
+                            loop_detected = True
+                    cables.append(cable)
+            if loop_detected:
+                logger.warning('Infinite loop detected while updating cable path trace')
+                break
             path.append(cables)
 
             # Step 5: Update the path status if a link is not connected
@@ -724,14 +733,6 @@ class CablePath(models.Model):
                     # Unsupported topology, mark as split and exit
                     is_complete = False
                     is_split = True
-                break
-
-            # Detect infinite loop in cabling topology
-            num_elements_added = len(path) - len(prev_path)
-            prev_elements_added = prev_path[-num_elements_added:]
-            elements_added = path[-num_elements_added:]
-            if elements_added == prev_elements_added:
-                logger.warning('Infinite loop detected while updating cable path trace')
                 break
 
         return cls(

@@ -2373,12 +2373,12 @@ class CablePathTestCase(TestCase):
         ct_rearport = ContentType.objects.get(app_label='dcim', model='rearport')
 
         cable_1 = Cable.objects.create()
-        termination_1a = CableTermination.objects.create(cable=cable_1, cable_end='A', termination_type=ct_interface, termination_id=interface.id)
-        termination_1b = CableTermination.objects.create(cable=cable_1, cable_end='B', termination_type=ct_frontport, termination_id=front_port_1.id)
+        CableTermination.objects.create(cable=cable_1, cable_end='A', termination_type=ct_interface, termination_id=interface.id)
+        CableTermination.objects.create(cable=cable_1, cable_end='B', termination_type=ct_frontport, termination_id=front_port_1.id)
 
         cable_2 = Cable.objects.create()
-        termination_2a = CableTermination.objects.create(cable=cable_2, cable_end='A', termination_type=ct_frontport, termination_id=front_port_2.id)
-        termination_2b = CableTermination.objects.create(cable=cable_2, cable_end='B', termination_type=ct_rearport, termination_id=rear_splice.id)
+        CableTermination.objects.create(cable=cable_2, cable_end='A', termination_type=ct_frontport, termination_id=front_port_2.id)
+        CableTermination.objects.create(cable=cable_2, cable_end='B', termination_type=ct_rearport, termination_id=rear_splice.id)
 
         cable_1._terminations_modified = True
         cable_1.save()
