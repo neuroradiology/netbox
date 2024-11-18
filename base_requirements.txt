@@ -84,10 +84,6 @@ Jinja2
 # https://python-markdown.github.io/changelog/
 Markdown
 
-# File inclusion plugin for Python-Markdown
-# https://github.com/cmacmackin/markdown-include
-markdown-include
-
 # MkDocs Material theme (for documentation build)
 # https://squidfunk.github.io/mkdocs-material/changelog/
 mkdocs-material
@@ -119,6 +115,10 @@ PyYAML
 # Requests
 # https://github.com/psf/requests/blob/main/HISTORY.md
 requests
+
+# rq
+# https://github.com/rq/rq/blob/master/CHANGES.md
+rq
 
 # Social authentication framework
 # https://github.com/python-social-auth/social-core/blob/master/CHANGELOG.md

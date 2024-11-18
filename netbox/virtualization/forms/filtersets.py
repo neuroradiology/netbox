@@ -100,7 +100,7 @@ class VirtualMachineFilterForm(
         FieldSet('region_id', 'site_group_id', 'site_id', name=_('Location')),
         FieldSet(
             'status', 'role_id', 'platform_id', 'mac_address', 'has_primary_ip', 'config_template_id',
-            'local_context_data', name=_('Attributes')
+            'local_context_data', 'serial', name=_('Attributes')
         ),
         FieldSet('tenant_group_id', 'tenant_id', name=_('Tenant')),
         FieldSet('contact', 'contact_role', 'contact_group', name=_('Contacts')),
@@ -178,6 +178,10 @@ class VirtualMachineFilterForm(
             choices=BOOLEAN_WITH_BLANK_CHOICES
         )
     )
+    serial = forms.CharField(
+        required=False,
+        label=_('Serial number')
+    )
     config_template_id = DynamicModelMultipleChoiceField(
         queryset=ConfigTemplate.objects.all(),
         required=False,
@@ -244,7 +248,7 @@ class VirtualDiskFilterForm(NetBoxModelFilterSetForm):
         label=_('Virtual machine')
     )
     size = forms.IntegerField(
-        label=_('Size (GB)'),
+        label=_('Size (MB)'),
         required=False,
         min_value=1
     )
