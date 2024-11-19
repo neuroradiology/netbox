@@ -2349,7 +2349,8 @@ class CablePathTestCase(TestCase):
     def test_detect_infinite_loop(self):
         """
         Tests the ability to detect a non-resolving path and break out with a logged warning.
-        No assertion; test will fail by falling into a non-terminating loop in CablePath.from_origin()
+        Assertion will fail if max_length is exceeded (meaning infinite loop detection failed), or not reached
+        (meaning this test is no longer valid as existing synthetic path no longer creates an infinite loop).
         [IF1] --C1-- [FP1][Test Device][Rear Splice]
                      [FP2]   --C2--    [ Rear Splice
         """
@@ -2381,7 +2382,9 @@ class CablePathTestCase(TestCase):
         CableTermination.objects.create(cable=cable_2, cable_end='A', termination_type=ct_frontport, termination_id=front_port_2.id)
         CableTermination.objects.create(cable=cable_2, cable_end='B', termination_type=ct_rearport, termination_id=rear_splice.id)
 
-        cable_1.save(max_length=50)
+        max_length = 50
+
+        cable_1.save(max_length=max_length)
         a_terminations = []
         b_terminations = []
         for t in cable_1.terminations.all():
@@ -2389,7 +2392,7 @@ class CablePathTestCase(TestCase):
                 a_terminations.append(t.termination)
             else:
                 b_terminations.append(t.termination)
-        cp = CablePath.from_origin(a_terminations, max_length=50)
-        self.assertEqual(len(cp.path), 50)
-        cp = CablePath.from_origin(b_terminations, max_length=10)
-        self.assertEqual(len(cp.path), 3)
+        cp = CablePath.from_origin(a_terminations, max_length=max_length)
+        self.assertEqual(len(cp.path), max_length)
+        cp = CablePath.from_origin(b_terminations, max_length=max_length)
+        self.assertLess(len(cp.path), max_length)

@@ -2,6 +2,7 @@ import itertools
 import logging
 from collections import defaultdict
 
+from django.conf import settings
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -533,7 +534,7 @@ class CablePath(models.Model):
         """
         from circuits.models import CircuitTermination
 
-        max_length = max_length or 99999
+        max_length = max_length or settings.CABLE_TRACE_MAX_LENGTH
 
         if not terminations:
             return None

@@ -72,6 +72,7 @@ AUTH_PASSWORD_VALIDATORS = getattr(configuration, 'AUTH_PASSWORD_VALIDATORS', [
     },
 ])
 BASE_PATH = trailing_slash(getattr(configuration, 'BASE_PATH', ''))
+CABLE_TRACE_MAX_LENGTH = getattr(configuration, 'CABLE_TRACE_MAX_LENGTH', 99999)
 CHANGELOG_SKIP_EMPTY_CHANGES = getattr(configuration, 'CHANGELOG_SKIP_EMPTY_CHANGES', True)
 CENSUS_REPORTING_ENABLED = getattr(configuration, 'CENSUS_REPORTING_ENABLED', True)
 CORS_ORIGIN_ALLOW_ALL = getattr(configuration, 'CORS_ORIGIN_ALLOW_ALL', False)
