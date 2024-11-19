@@ -525,15 +525,13 @@ class CablePath(models.Model):
         return int(len(self.path) / 3)
 
     @classmethod
-    def from_origin(cls, terminations, max_length=None):
+    def from_origin(cls, terminations, max_length=settings.CABLE_TRACE_MAX_LENGTH):
         """
         Create a new CablePath instance as traced from the given termination objects. These can be any object to which a
         Cable or WirelessLink connects (interfaces, console ports, circuit termination, etc.). All terminations must be
         of the same type and must belong to the same parent object.
         """
         from circuits.models import CircuitTermination
-
-        max_length = max_length or settings.CABLE_TRACE_MAX_LENGTH
 
         if not terminations:
             return None
@@ -590,7 +588,6 @@ class CablePath(models.Model):
 
             # Step 4: Record the links, keeping cables in order to allow for SVG rendering
             cables = []
-
             for link in links:
                 cable = object_to_path_node(link)
                 if cable not in cables:
