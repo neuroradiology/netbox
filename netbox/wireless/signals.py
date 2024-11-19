@@ -13,7 +13,7 @@ from .models import WirelessLink
 #
 
 @receiver(post_save, sender=WirelessLink)
-def update_connected_interfaces(instance, created, raw=False, **kwargs):
+def update_connected_interfaces(instance, created, raw=False, max_length=None, **kwargs):
     """
     When a WirelessLink is saved, save a reference to it on each connected interface.
     """
@@ -34,7 +34,7 @@ def update_connected_interfaces(instance, created, raw=False, **kwargs):
     # Create/update cable paths
     if created:
         for interface in (instance.interface_a, instance.interface_b):
-            create_cablepath([interface])
+            create_cablepath([interface], max_length=max_length)
 
 
 @receiver(post_delete, sender=WirelessLink)

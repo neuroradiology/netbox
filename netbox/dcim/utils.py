@@ -30,20 +30,21 @@ def path_node_to_object(repr):
     return ct.model_class().objects.filter(pk=object_id).first()
 
 
-def create_cablepath(terminations):
+def create_cablepath(terminations, max_length=None):
     """
     Create CablePaths for all paths originating from the specified set of nodes.
 
     :param terminations: Iterable of CableTermination objects
+    :max_length: Optional limit of cable path to trace
     """
     from dcim.models import CablePath
 
-    cp = CablePath.from_origin(terminations)
+    cp = CablePath.from_origin(terminations, max_length=max_length)
     if cp:
         cp.save()
 
 
-def rebuild_paths(terminations):
+def rebuild_paths(terminations, max_length=None):
     """
     Rebuild all CablePaths which traverse the specified nodes.
     """
@@ -55,4 +56,4 @@ def rebuild_paths(terminations):
         with transaction.atomic():
             for cp in cable_paths:
                 cp.delete()
-                create_cablepath(cp.origins)
+                create_cablepath(cp.origins, max_length=max_length)

@@ -204,6 +204,7 @@ class Cable(PrimaryModel):
 
     def save(self, *args, **kwargs):
         _created = self.pk is None
+        max_length = kwargs.pop('max_length', None)
 
         # Store the given length (if any) in meters for use in database ordering
         if self.length is not None and self.length_unit:
@@ -242,7 +243,7 @@ class Cable(PrimaryModel):
                 if not termination.pk or termination not in b_terminations:
                     CableTermination(cable=self, cable_end='B', termination=termination).save()
 
-        trace_paths.send(Cable, instance=self, created=_created)
+        trace_paths.send(Cable, instance=self, created=_created, max_length=max_length)
 
     def get_status_color(self):
         return LinkStatusChoices.colors.get(self.status)
@@ -524,13 +525,15 @@ class CablePath(models.Model):
         return int(len(self.path) / 3)
 
     @classmethod
-    def from_origin(cls, terminations):
+    def from_origin(cls, terminations, max_length=None):
         """
         Create a new CablePath instance as traced from the given termination objects. These can be any object to which a
         Cable or WirelessLink connects (interfaces, console ports, circuit termination, etc.). All terminations must be
         of the same type and must belong to the same parent object.
         """
         from circuits.models import CircuitTermination
+
+        max_length = max_length or 99999
 
         if not terminations:
             return None
@@ -587,20 +590,16 @@ class CablePath(models.Model):
 
             # Step 4: Record the links, keeping cables in order to allow for SVG rendering
             cables = []
-            loop_detected = False
 
             for link in links:
                 cable = object_to_path_node(link)
                 if cable not in cables:
-                    # Detect infinite loop in cabling topology
-                    for node in path:
-                        if cable in node:
-                            loop_detected = True
                     cables.append(cable)
-            if loop_detected:
+            path.append(cables)
+            print(len(path), max_length)
+            if len(path) > max_length:
                 logger.warning('Infinite loop detected while updating cable path trace')
                 break
-            path.append(cables)
 
             # Step 5: Update the path status if a link is not connected
             links_status = [link.status for link in links if link.status != LinkStatusChoices.STATUS_CONNECTED]
@@ -742,11 +741,11 @@ class CablePath(models.Model):
             is_split=is_split
         )
 
-    def retrace(self):
+    def retrace(self, max_length=None):
         """
         Retrace the path from the currently-defined originating termination(s)
         """
-        _new = self.from_origin(self.origins)
+        _new = self.from_origin(self.origins, max_length=max_length)
         if _new:
             self.path = _new.path
             self.is_complete = _new.is_complete

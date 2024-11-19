@@ -72,7 +72,7 @@ def clear_virtualchassis_members(instance, **kwargs):
 #
 
 @receiver(trace_paths, sender=Cable)
-def update_connected_endpoints(instance, created, raw=False, **kwargs):
+def update_connected_endpoints(instance, created, raw=False, max_length=None, **kwargs):
     """
     When a Cable is saved with new terminations, retrace any affected cable paths.
     """
@@ -95,29 +95,29 @@ def update_connected_endpoints(instance, created, raw=False, **kwargs):
             if not nodes:
                 continue
             if isinstance(nodes[0], PathEndpoint):
-                create_cablepath(nodes)
+                create_cablepath(nodes, max_length=max_length)
             else:
-                rebuild_paths(nodes)
+                rebuild_paths(nodes, max_length=max_length)
 
     # Update status of CablePaths if Cable status has been changed
     elif instance.status != instance._orig_status:
         if instance.status != LinkStatusChoices.STATUS_CONNECTED:
             CablePath.objects.filter(_nodes__contains=instance).update(is_active=False)
         else:
-            rebuild_paths([instance])
+            rebuild_paths([instance], max_length=max_length)
 
 
 @receiver(post_delete, sender=Cable)
-def retrace_cable_paths(instance, **kwargs):
+def retrace_cable_paths(instance, max_length=None, **kwargs):
     """
     When a Cable is deleted, check for and update its connected endpoints
     """
     for cablepath in CablePath.objects.filter(_nodes__contains=instance):
-        cablepath.retrace()
+        cablepath.retrace(max_length=max_length)
 
 
 @receiver(post_delete, sender=CableTermination)
-def nullify_connected_endpoints(instance, **kwargs):
+def nullify_connected_endpoints(instance, max_length=None, **kwargs):
     """
     Disassociate the Cable from the termination object, and retrace any affected CablePaths.
     """
@@ -128,15 +128,15 @@ def nullify_connected_endpoints(instance, **kwargs):
         # Remove the deleted CableTermination if it's one of the path's originating nodes
         if instance.termination in cablepath.origins:
             cablepath.origins.remove(instance.termination)
-        cablepath.retrace()
+        cablepath.retrace(max_length=max_length)
 
 
 @receiver(post_save, sender=FrontPort)
-def extend_rearport_cable_paths(instance, created, raw, **kwargs):
+def extend_rearport_cable_paths(instance, created, raw, max_length=None, **kwargs):
     """
     When a new FrontPort is created, add it to any CablePaths which end at its corresponding RearPort.
     """
     if created and not raw:
         rearport = instance.rear_port
         for cablepath in CablePath.objects.filter(_nodes__contains=rearport):
-            cablepath.retrace()
+            cablepath.retrace(max_length=max_length)
