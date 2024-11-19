@@ -6,6 +6,7 @@ from dcim.choices import LinkStatusChoices
 from dcim.models import *
 from dcim.svg import CableTraceSVG
 from dcim.utils import object_to_path_node
+from dcim.choices import CableEndChoices
 
 
 class CablePathTestCase(TestCase):
@@ -2380,5 +2381,15 @@ class CablePathTestCase(TestCase):
         CableTermination.objects.create(cable=cable_2, cable_end='A', termination_type=ct_frontport, termination_id=front_port_2.id)
         CableTermination.objects.create(cable=cable_2, cable_end='B', termination_type=ct_rearport, termination_id=rear_splice.id)
 
-        cable_1._terminations_modified = True
-        cable_1.save()
+        cable_1.save(max_length=50)
+        a_terminations = []
+        b_terminations = []
+        for t in cable_1.terminations.all():
+            if t.cable_end == CableEndChoices.SIDE_A:
+                a_terminations.append(t.termination)
+            else:
+                b_terminations.append(t.termination)
+        cp = CablePath.from_origin(a_terminations, max_length=50)
+        self.assertEqual(len(cp.path), 50)
+        cp = CablePath.from_origin(b_terminations, max_length=10)
+        self.assertEqual(len(cp.path), 3)

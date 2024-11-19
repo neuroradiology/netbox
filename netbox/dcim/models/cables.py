@@ -596,8 +596,7 @@ class CablePath(models.Model):
                 if cable not in cables:
                     cables.append(cable)
             path.append(cables)
-            print(len(path), max_length)
-            if len(path) > max_length:
+            if len(path) >= max_length:
                 logger.warning('Infinite loop detected while updating cable path trace')
                 break
 
