@@ -2382,9 +2382,9 @@ class CablePathTestCase(TestCase):
         CableTermination.objects.create(cable=cable_2, cable_end='A', termination_type=ct_frontport, termination_id=front_port_2.id)
         CableTermination.objects.create(cable=cable_2, cable_end='B', termination_type=ct_rearport, termination_id=rear_splice.id)
 
-        max_length = 50
+        cable_1.save()
 
-        cable_1.save(max_length=max_length)
+        max_length = 50
         a_terminations = []
         b_terminations = []
         for t in cable_1.terminations.all():

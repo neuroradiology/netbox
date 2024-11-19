@@ -17,11 +17,11 @@ def update_circuit(instance, **kwargs):
 
 
 @receiver((post_save, post_delete), sender=CircuitTermination)
-def rebuild_cablepaths(instance, raw=False, max_length=None, **kwargs):
+def rebuild_cablepaths(instance, raw=False, **kwargs):
     """
     Rebuild any CablePaths which traverse the peer CircuitTermination.
     """
     if not raw:
         peer_termination = instance.get_peer_termination()
         if peer_termination:
-            rebuild_paths([peer_termination], max_length=max_length)
+            rebuild_paths([peer_termination])

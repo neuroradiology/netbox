@@ -205,7 +205,6 @@ class Cable(PrimaryModel):
 
     def save(self, *args, **kwargs):
         _created = self.pk is None
-        max_length = kwargs.pop('max_length', None)
 
         # Store the given length (if any) in meters for use in database ordering
         if self.length is not None and self.length_unit:
@@ -244,7 +243,7 @@ class Cable(PrimaryModel):
                 if not termination.pk or termination not in b_terminations:
                     CableTermination(cable=self, cable_end='B', termination=termination).save()
 
-        trace_paths.send(Cable, instance=self, created=_created, max_length=max_length)
+        trace_paths.send(Cable, instance=self, created=_created)
 
     def get_status_color(self):
         return LinkStatusChoices.colors.get(self.status)
@@ -741,11 +740,11 @@ class CablePath(models.Model):
             is_split=is_split
         )
 
-    def retrace(self, max_length=None):
+    def retrace(self):
         """
         Retrace the path from the currently-defined originating termination(s)
         """
-        _new = self.from_origin(self.origins, max_length=max_length)
+        _new = self.from_origin(self.origins)
         if _new:
             self.path = _new.path
             self.is_complete = _new.is_complete
