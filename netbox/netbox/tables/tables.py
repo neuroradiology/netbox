@@ -4,7 +4,7 @@ from functools import cached_property
 import django_tables2 as tables
 from django.contrib.auth.models import AnonymousUser
 from django.contrib.contenttypes.fields import GenericForeignKey
-from django.core.exceptions import FieldDoesNotExist
+from django.core.exceptions import FieldDoesNotExist, FieldError
 from django.db.models.fields.related import RelatedField
 from django.db.models.fields.reverse_related import ManyToOneRel
 from django.urls import reverse
@@ -162,7 +162,11 @@ class BaseTable(tables.Table):
                     request.user.config.clear(f'tables.{self.name}.ordering', commit=True)
             elif ordering := request.user.config.get(f'tables.{self.name}.ordering'):
                 # If no ordering has been specified, set the preferred ordering (if any).
-                self.order_by = ordering
+                # Check that the requested field exists and clear the preference if previously set.
+                try:
+                    self.order_by = ordering
+                except FieldError:
+                    request.user.config.clear(f'tables.{self.name}.ordering', commit=True)
 
         # Paginate the table results
         paginate = {
