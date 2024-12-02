@@ -39,7 +39,6 @@ class ScriptJob(JobRunner):
         """
         logger = logging.getLogger(f"netbox.scripts.{script.full_name}")
         logger.info(f"Running script (commit={commit})")
-        print("running script")
 
         try:
             try:
@@ -53,7 +52,6 @@ class ScriptJob(JobRunner):
                     logger.warning("Script failed")
 
         except Exception as e:
-            print(f"exception: {e}")
             if type(e) is AbortScript:
                 msg = _("Script aborted with error: ") + str(e)
                 if is_report(type(script)):
