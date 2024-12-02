@@ -2,7 +2,10 @@ import logging
 import traceback
 from contextlib import nullcontext
 
+from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 from django.db import transaction
+from django.utils.module_loading import import_string
 from django.utils.translation import gettext as _
 
 from core.signals import clear_events
@@ -36,6 +39,7 @@ class ScriptJob(JobRunner):
         """
         logger = logging.getLogger(f"netbox.scripts.{script.full_name}")
         logger.info(f"Running script (commit={commit})")
+        print("running script")
 
         try:
             try:
@@ -49,6 +53,7 @@ class ScriptJob(JobRunner):
                     logger.warning("Script failed")
 
         except Exception as e:
+            print(f"exception: {e}")
             if type(e) is AbortScript:
                 msg = _("Script aborted with error: ") + str(e)
                 if is_report(type(script)):
@@ -100,5 +105,19 @@ class ScriptJob(JobRunner):
 
         # Execute the script. If commit is True, wrap it with the event_tracking context manager to ensure we process
         # change logging, event rules, etc.
-        with event_tracking(request) if commit else nullcontext():
-            self.run_script(script, request, data, commit)
+        branch = None
+        if settings.BRANCHING_BACKEND:
+            try:
+                branching_cls = import_string(settings.BRANCHING_BACKEND)
+            except AttributeError:
+                logger = logging.getLogger(f"netbox.scripts.{script.full_name}")
+                message = _("Failed to import configured BRANCHING_BACKEND: ") + settings.BRANCHING_BACKEND
+                logger.error(message)
+                raise ImproperlyConfigured(message)
+
+            branching_backend = branching_cls()
+            branch = branching_backend.get_active_branch(request)
+
+        with branching_backend.activate_branch(branch) if branch else nullcontext():
+            with event_tracking(request) if commit else nullcontext():
+                self.run_script(script, request, data, commit)

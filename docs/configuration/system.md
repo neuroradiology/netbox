@@ -219,3 +219,11 @@ The time zone NetBox will use when dealing with dates and times. It is recommend
 Default: True
 
 Enables language translation for the user interface. (This parameter maps to Django's [USE_I18N](https://docs.djangoproject.com/en/stable/ref/settings/#std-setting-USE_I18N) setting.)
+
+---
+
+## BRANCHING_BACKEND
+
+Default: None
+
+The dotted path to the desired branching class. If using [netboxlabs-netbox-branching](https://github.com/netboxlabs/netbox-branching) set this to `netbox_branching.backends.BranchingBackend`
