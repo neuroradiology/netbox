@@ -3,6 +3,7 @@ import yaml
 
 from functools import cached_property
 
+from django.contrib.contenttypes.fields import GenericForeignKey
 from django.core.exceptions import ValidationError
 from django.core.files.storage import default_storage
 from django.core.validators import MaxValueValidator, MinValueValidator
@@ -16,6 +17,7 @@ from django.utils.translation import gettext_lazy as _
 
 from dcim.choices import *
 from dcim.constants import *
+from dcim.fields import MACAddressField
 from extras.models import ConfigContextModel, CustomField
 from extras.querysets import ConfigContextModelQuerySet
 from netbox.choices import ColorChoices
@@ -23,7 +25,7 @@ from netbox.config import ConfigItem
 from netbox.models import OrganizationalModel, PrimaryModel
 from netbox.models.mixins import WeightMixin
 from netbox.models.features import ContactsMixin, ImageAttachmentsMixin
-from utilities.fields import ColorField, CounterCacheField, NaturalOrderingField
+from utilities.fields import ColorField, CounterCacheField
 from utilities.tracking import TrackingModelMixin
 from .device_components import *
 from .mixins import RenderConfigMixin
@@ -33,6 +35,7 @@ __all__ = (
     'Device',
     'DeviceRole',
     'DeviceType',
+    'MACAddress',
     'Manufacturer',
     'Module',
     'ModuleType',
@@ -118,6 +121,7 @@ class DeviceType(ImageAttachmentsMixin, PrimaryModel, WeightMixin):
         max_length=50,
         choices=SubdeviceRoleChoices,
         blank=True,
+        null=True,
         verbose_name=_('parent/child status'),
         help_text=_('Parent devices house child devices in device bays. Leave blank '
                     'if this device type is neither a parent nor a child.')
@@ -126,7 +130,8 @@ class DeviceType(ImageAttachmentsMixin, PrimaryModel, WeightMixin):
         verbose_name=_('airflow'),
         max_length=50,
         choices=DeviceAirflowChoices,
-        blank=True
+        blank=True,
+        null=True
     )
     front_image = models.ImageField(
         upload_to='devicetype-images',
@@ -387,7 +392,8 @@ class ModuleType(ImageAttachmentsMixin, PrimaryModel, WeightMixin):
         verbose_name=_('airflow'),
         max_length=50,
         choices=ModuleAirflowChoices,
-        blank=True
+        blank=True,
+        null=True
     )
 
     clone_fields = ('manufacturer', 'weight', 'weight_unit', 'airflow')
@@ -526,7 +532,10 @@ def update_interface_bridges(device, interface_templates, module=None):
         interface = Interface.objects.get(device=device, name=interface_template.resolve_name(module=module))
 
         if interface_template.bridge:
-            interface.bridge = Interface.objects.get(device=device, name=interface_template.bridge.resolve_name(module=module))
+            interface.bridge = Interface.objects.get(
+                device=device,
+                name=interface_template.bridge.resolve_name(module=module)
+            )
             interface.full_clean()
             interface.save()
 
@@ -579,13 +588,8 @@ class Device(
         verbose_name=_('name'),
         max_length=64,
         blank=True,
-        null=True
-    )
-    _name = NaturalOrderingField(
-        target_field='name',
-        max_length=100,
-        blank=True,
-        null=True
+        null=True,
+        db_collation="natural_sort"
     )
     serial = models.CharField(
         max_length=50,
@@ -632,6 +636,7 @@ class Device(
     face = models.CharField(
         max_length=50,
         blank=True,
+        null=True,
         choices=DeviceFaceChoices,
         verbose_name=_('rack face')
     )
@@ -645,7 +650,8 @@ class Device(
         verbose_name=_('airflow'),
         max_length=50,
         choices=DeviceAirflowChoices,
-        blank=True
+        blank=True,
+        null=True
     )
     primary_ip4 = models.OneToOneField(
         to='ipam.IPAddress',
@@ -770,7 +776,7 @@ class Device(
     )
 
     class Meta:
-        ordering = ('_name', 'pk')  # Name may be null
+        ordering = ('name', 'pk')  # Name may be null
         constraints = (
             models.UniqueConstraint(
                 Lower('name'), 'site', 'tenant',
@@ -906,7 +912,10 @@ class Device(
                 })
             if self.primary_ip4.assigned_object in vc_interfaces:
                 pass
-            elif self.primary_ip4.nat_inside is not None and self.primary_ip4.nat_inside.assigned_object in vc_interfaces:
+            elif (
+                    self.primary_ip4.nat_inside is not None and
+                    self.primary_ip4.nat_inside.assigned_object in vc_interfaces
+            ):
                 pass
             else:
                 raise ValidationError({
@@ -921,7 +930,10 @@ class Device(
                 })
             if self.primary_ip6.assigned_object in vc_interfaces:
                 pass
-            elif self.primary_ip6.nat_inside is not None and self.primary_ip6.nat_inside.assigned_object in vc_interfaces:
+            elif (
+                    self.primary_ip6.nat_inside is not None and
+                    self.primary_ip6.nat_inside.assigned_object in vc_interfaces
+            ):
                 pass
             else:
                 raise ValidationError({
@@ -953,10 +965,17 @@ class Device(
                 })
 
         # A Device can only be assigned to a Cluster in the same Site (or no Site)
-        if self.cluster and self.cluster.site is not None and self.cluster.site != self.site:
+        if self.cluster and self.cluster._site is not None and self.cluster._site != self.site:
             raise ValidationError({
                 'cluster': _("The assigned cluster belongs to a different site ({site})").format(
-                    site=self.cluster.site
+                    site=self.cluster._site
+                )
+            })
+
+        if self.cluster and self.cluster._location is not None and self.cluster._location != self.location:
+            raise ValidationError({
+                'cluster': _("The assigned cluster belongs to a different location ({location})").format(
+                    site=self.cluster._location
                 )
             })
 
@@ -968,9 +987,10 @@ class Device(
 
         if hasattr(self, 'vc_master_for') and self.vc_master_for and self.vc_master_for != self.virtual_chassis:
             raise ValidationError({
-                'virtual_chassis': _('Device cannot be removed from virtual chassis {virtual_chassis} because it is currently designated as its master.').format(
-                    virtual_chassis=self.vc_master_for
-                )
+                'virtual_chassis': _(
+                    'Device cannot be removed from virtual chassis {virtual_chassis} because it is currently '
+                    'designated as its master.'
+                ).format(virtual_chassis=self.vc_master_for)
             })
 
     def _instantiate_components(self, queryset, bulk_create=True):
@@ -1308,7 +1328,8 @@ class VirtualChassis(PrimaryModel):
     )
     name = models.CharField(
         verbose_name=_('name'),
-        max_length=64
+        max_length=64,
+        db_collation="natural_sort"
     )
     domain = models.CharField(
         verbose_name=_('domain'),
@@ -1370,7 +1391,8 @@ class VirtualDeviceContext(PrimaryModel):
     )
     name = models.CharField(
         verbose_name=_('name'),
-        max_length=64
+        max_length=64,
+        db_collation="natural_sort"
     )
     status = models.CharField(
         verbose_name=_('status'),
@@ -1461,3 +1483,37 @@ class VirtualDeviceContext(PrimaryModel):
                 raise ValidationError({
                     f'primary_ip{family}': _('Primary IP address must belong to an interface on the assigned device.')
                 })
+
+
+#
+# Addressing
+#
+
+class MACAddress(PrimaryModel):
+    mac_address = MACAddressField(
+        verbose_name=_('MAC address')
+    )
+    assigned_object_type = models.ForeignKey(
+        to='contenttypes.ContentType',
+        limit_choices_to=MACADDRESS_ASSIGNMENT_MODELS,
+        on_delete=models.PROTECT,
+        related_name='+',
+        blank=True,
+        null=True
+    )
+    assigned_object_id = models.PositiveBigIntegerField(
+        blank=True,
+        null=True
+    )
+    assigned_object = GenericForeignKey(
+        ct_field='assigned_object_type',
+        fk_field='assigned_object_id'
+    )
+
+    class Meta:
+        ordering = ('mac_address',)
+        verbose_name = _('MAC address')
+        verbose_name_plural = _('MAC addresses')
+
+    def __str__(self):
+        return str(self.mac_address)

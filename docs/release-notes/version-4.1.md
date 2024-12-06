@@ -1,5 +1,61 @@
 # NetBox v4.1
 
+## v4.1.7 (FUTURE)
+
+### Enhancements
+
+* [#15239](https://github.com/netbox-community/netbox/issues/15239) - Enable adding/removing individual VLANs while bulk editing device interfaces
+* [#17871](https://github.com/netbox-community/netbox/issues/17871) - Enable the assignment/removal of virtualization cluster via device bulk edit
+* [#17934](https://github.com/netbox-community/netbox/issues/17934) - Add 1000Base-LX interface type
+* [#18007](https://github.com/netbox-community/netbox/issues/18007) - Hide sensitive parameters under data source view (even for privileged users)
+
+### Bug Fixes
+
+* [#17459](https://github.com/netbox-community/netbox/issues/17459) - Correct help text on `name` field of module type component templates
+* [#17901](https://github.com/netbox-community/netbox/issues/17901) - Ensure GraphiQL UI resources are served locally
+* [#17921](https://github.com/netbox-community/netbox/issues/17921) - Fix scheduling of recurring custom scripts
+* [#17923](https://github.com/netbox-community/netbox/issues/17923) - Fix the execution of custom scripts via REST API & management command
+* [#17963](https://github.com/netbox-community/netbox/issues/17963) - Fix selection of all listed objects during bulk edit
+* [#17969](https://github.com/netbox-community/netbox/issues/17969) - Fix system info export when a config revision exists
+* [#17972](https://github.com/netbox-community/netbox/issues/17972) - Force evaluation of `LOGIN_REQUIRED` when requesting static media
+* [#17986](https://github.com/netbox-community/netbox/issues/17986) - Correct labels for virtual machine & virtual disk size properties
+* [#18037](https://github.com/netbox-community/netbox/issues/18037) - Fix validation of maximum VLAN ID value when defining VLAN groups
+* [#18038](https://github.com/netbox-community/netbox/issues/18038) - The `to_grams()` utility function should always return an integer value
+
+---
+
+## v4.1.6 (2024-10-31)
+
+### Bug Fixes
+
+* [#17700](https://github.com/netbox-community/netbox/issues/17700) - Fix warning when no scripts are found within a script module
+* [#17884](https://github.com/netbox-community/netbox/issues/17884) - Fix translation support for certain tab headings
+* [#17885](https://github.com/netbox-community/netbox/issues/17885) - Fix regression preventing custom scripts from executing
+
+## v4.1.5 (2024-10-28)
+
+### Enhancements
+
+* [#17789](https://github.com/netbox-community/netbox/issues/17789) - Provide a single "scope" field for bulk editing VLAN group scope assignments
+
+### Bug Fixes
+
+* [#17358](https://github.com/netbox-community/netbox/issues/17358) - Fix validation of overlapping IP ranges
+* [#17374](https://github.com/netbox-community/netbox/issues/17374) - Fix styling of highlighted table rows in dark mode
+* [#17460](https://github.com/netbox-community/netbox/issues/17460) - Ensure bulk action buttons are consistent for device type components
+* [#17635](https://github.com/netbox-community/netbox/issues/17635) - Ensure AbortTransaction is caught when running a custom script with `commit=False`
+* [#17685](https://github.com/netbox-community/netbox/issues/17685) - Ensure background jobs are validated before being scheduled
+* [#17710](https://github.com/netbox-community/netbox/issues/17710) - Remove cached fields on CableTermination model from GraphQL API
+* [#17740](https://github.com/netbox-community/netbox/issues/17740) - Ensure support for image attachments with a `.webp` file extension
+* [#17749](https://github.com/netbox-community/netbox/issues/17749) - Restore missing `devicetypes` and `children` fields for several objects in GraphQL API
+* [#17754](https://github.com/netbox-community/netbox/issues/17754) - Remove paginator from version history table under plugin view
+* [#17759](https://github.com/netbox-community/netbox/issues/17759) - Retain `job_timeout` value when scheduling a recurring custom script
+* [#17774](https://github.com/netbox-community/netbox/issues/17774) - Fix SSO login support for Entra ID (formerly Azure AD)
+* [#17802](https://github.com/netbox-community/netbox/issues/17802) - Fix background color for bulk rename buttons in list views
+* [#17838](https://github.com/netbox-community/netbox/issues/17838) - Adjust `manage.py` to reference `python3` executable
+
+---
+
 ## v4.1.4 (2024-10-15)
 
 ### Enhancements

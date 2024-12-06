@@ -1,6 +1,6 @@
 # The Python web framework on which NetBox is built
 # https://docs.djangoproject.com/en/stable/releases/
-Django<5.1
+Django<5.2
 
 # Django middleware which permits cross-domain API requests
 # https://github.com/adamchainz/django-cors-headers/blob/main/CHANGELOG.rst
@@ -115,6 +115,10 @@ PyYAML
 # Requests
 # https://github.com/psf/requests/blob/main/HISTORY.md
 requests
+
+# rq
+# https://github.com/rq/rq/blob/master/CHANGES.md
+rq
 
 # Social authentication framework
 # https://github.com/python-social-auth/social-core/blob/master/CHANGELOG.md

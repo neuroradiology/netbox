@@ -9,6 +9,7 @@ from django.db import models
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.translation import gettext as _
+from rq.exceptions import InvalidJobOperation
 
 from core.choices import JobStatusChoices
 from core.models import ObjectType
@@ -130,7 +131,7 @@ class Job(models.Model):
         super().clean()
 
         # Validate the assigned object type
-        if self.object_type not in ObjectType.objects.with_feature('jobs'):
+        if self.object_type and self.object_type not in ObjectType.objects.with_feature('jobs'):
             raise ValidationError(
                 _("Jobs cannot be assigned to this object type ({type}).").format(type=self.object_type)
             )
@@ -158,7 +159,11 @@ class Job(models.Model):
         job = queue.fetch_job(str(self.job_id))
 
         if job:
-            job.cancel()
+            try:
+                job.cancel()
+            except InvalidJobOperation:
+                # Job may raise this exception from get_status() if missing from Redis
+                pass
 
     def start(self):
         """
@@ -198,7 +203,17 @@ class Job(models.Model):
         job_end.send(self)
 
     @classmethod
-    def enqueue(cls, func, instance=None, name='', user=None, schedule_at=None, interval=None, immediate=False, **kwargs):
+    def enqueue(
+            cls,
+            func,
+            instance=None,
+            name='',
+            user=None,
+            schedule_at=None,
+            interval=None,
+            immediate=False,
+            **kwargs
+    ):
         """
         Create a Job instance and enqueue a job using the given callable
 
@@ -223,7 +238,7 @@ class Job(models.Model):
         rq_queue_name = get_queue_for_model(object_type.model if object_type else None)
         queue = django_rq.get_queue(rq_queue_name)
         status = JobStatusChoices.STATUS_SCHEDULED if schedule_at else JobStatusChoices.STATUS_PENDING
-        job = Job.objects.create(
+        job = Job(
             object_type=object_type,
             object_id=object_id,
             name=name,
@@ -233,6 +248,8 @@ class Job(models.Model):
             user=user,
             job_id=uuid.uuid4()
         )
+        job.full_clean()
+        job.save()
 
         # Run the job immediately, rather than enqueuing it as a background task. Note that this is a synchronous
         # (blocking) operation, and execution will pause until the job completes.

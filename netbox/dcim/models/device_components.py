@@ -10,7 +10,7 @@ from mptt.models import MPTTModel, TreeForeignKey
 
 from dcim.choices import *
 from dcim.constants import *
-from dcim.fields import MACAddressField, WWNField
+from dcim.fields import WWNField
 from netbox.choices import ColorChoices
 from netbox.models import OrganizationalModel, NetBoxModel
 from utilities.fields import ColorField, NaturalOrderingField
@@ -50,12 +50,8 @@ class ComponentModel(NetBoxModel):
     )
     name = models.CharField(
         verbose_name=_('name'),
-        max_length=64
-    )
-    _name = NaturalOrderingField(
-        target_field='name',
-        max_length=100,
-        blank=True
+        max_length=64,
+        db_collation="natural_sort"
     )
     label = models.CharField(
         verbose_name=_('label'),
@@ -71,7 +67,7 @@ class ComponentModel(NetBoxModel):
 
     class Meta:
         abstract = True
-        ordering = ('device', '_name')
+        ordering = ('device', 'name')
         constraints = (
             models.UniqueConstraint(
                 fields=('device', 'name'),
@@ -142,8 +138,9 @@ class CabledObjectModel(models.Model):
     cable_end = models.CharField(
         verbose_name=_('cable end'),
         max_length=1,
+        choices=CableEndChoices,
         blank=True,
-        choices=CableEndChoices
+        null=True
     )
     mark_connected = models.BooleanField(
         verbose_name=_('mark connected'),
@@ -283,6 +280,7 @@ class ConsolePort(ModularComponentModel, CabledObjectModel, PathEndpoint, Tracki
         max_length=50,
         choices=ConsolePortTypeChoices,
         blank=True,
+        null=True,
         help_text=_('Physical port type')
     )
     speed = models.PositiveIntegerField(
@@ -309,6 +307,7 @@ class ConsoleServerPort(ModularComponentModel, CabledObjectModel, PathEndpoint, 
         max_length=50,
         choices=ConsolePortTypeChoices,
         blank=True,
+        null=True,
         help_text=_('Physical port type')
     )
     speed = models.PositiveIntegerField(
@@ -339,6 +338,7 @@ class PowerPort(ModularComponentModel, CabledObjectModel, PathEndpoint, Tracking
         max_length=50,
         choices=PowerPortTypeChoices,
         blank=True,
+        null=True,
         help_text=_('Physical port type')
     )
     maximum_draw = models.PositiveIntegerField(
@@ -454,6 +454,7 @@ class PowerOutlet(ModularComponentModel, CabledObjectModel, PathEndpoint, Tracki
         max_length=50,
         choices=PowerOutletTypeChoices,
         blank=True,
+        null=True,
         help_text=_('Physical port type')
     )
     power_port = models.ForeignKey(
@@ -468,6 +469,7 @@ class PowerOutlet(ModularComponentModel, CabledObjectModel, PathEndpoint, Tracki
         max_length=50,
         choices=PowerOutletFeedLegChoices,
         blank=True,
+        null=True,
         help_text=_('Phase (for three-phase feeds)')
     )
     color = ColorField(
@@ -503,11 +505,6 @@ class BaseInterface(models.Model):
         verbose_name=_('enabled'),
         default=True
     )
-    mac_address = MACAddressField(
-        null=True,
-        blank=True,
-        verbose_name=_('MAC address')
-    )
     mtu = models.PositiveIntegerField(
         blank=True,
         null=True,
@@ -522,6 +519,7 @@ class BaseInterface(models.Model):
         max_length=50,
         choices=InterfaceModeChoices,
         blank=True,
+        null=True,
         help_text=_('IEEE 802.1Q tagging strategy')
     )
     parent = models.ForeignKey(
@@ -540,9 +538,63 @@ class BaseInterface(models.Model):
         blank=True,
         verbose_name=_('bridge interface')
     )
+    untagged_vlan = models.ForeignKey(
+        to='ipam.VLAN',
+        on_delete=models.SET_NULL,
+        related_name='%(class)ss_as_untagged',
+        null=True,
+        blank=True,
+        verbose_name=_('untagged VLAN')
+    )
+    tagged_vlans = models.ManyToManyField(
+        to='ipam.VLAN',
+        related_name='%(class)ss_as_tagged',
+        blank=True,
+        verbose_name=_('tagged VLANs')
+    )
+    qinq_svlan = models.ForeignKey(
+        to='ipam.VLAN',
+        on_delete=models.SET_NULL,
+        related_name='%(class)ss_svlan',
+        null=True,
+        blank=True,
+        verbose_name=_('Q-in-Q SVLAN')
+    )
+    vlan_translation_policy = models.ForeignKey(
+        to='ipam.VLANTranslationPolicy',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        verbose_name=_('VLAN Translation Policy')
+    )
+    primary_mac_address = models.OneToOneField(
+        to='dcim.MACAddress',
+        on_delete=models.SET_NULL,
+        related_name='+',
+        blank=True,
+        null=True,
+        verbose_name=_('primary MAC address')
+    )
 
     class Meta:
         abstract = True
+
+    def clean(self):
+        super().clean()
+
+        # SVLAN can be defined only for Q-in-Q interfaces
+        if self.qinq_svlan and self.mode != InterfaceModeChoices.MODE_Q_IN_Q:
+            raise ValidationError({
+                'qinq_svlan': _("Only Q-in-Q interfaces may specify a service VLAN.")
+            })
+
+        # Check that the primary MAC address (if any) is assigned to this interface
+        if self.primary_mac_address and self.primary_mac_address.assigned_object != self:
+            raise ValidationError({
+                'primary_mac_address': _("MAC address {mac_address} is not assigned to this interface.").format(
+                    mac_address=self.primary_mac_address
+                )
+            })
 
     def save(self, *args, **kwargs):
 
@@ -567,6 +619,11 @@ class BaseInterface(models.Model):
     @property
     def count_fhrp_groups(self):
         return self.fhrp_group_assignments.count()
+
+    @cached_property
+    def mac_address(self):
+        if self.primary_mac_address:
+            return self.primary_mac_address.mac_address
 
 
 class Interface(ModularComponentModel, BaseInterface, CabledObjectModel, PathEndpoint, TrackingModelMixin):
@@ -624,12 +681,14 @@ class Interface(ModularComponentModel, BaseInterface, CabledObjectModel, PathEnd
         max_length=30,
         choices=WirelessRoleChoices,
         blank=True,
+        null=True,
         verbose_name=_('wireless role')
     )
     rf_channel = models.CharField(
         max_length=50,
         choices=WirelessChannelChoices,
         blank=True,
+        null=True,
         verbose_name=_('wireless channel')
     )
     rf_channel_frequency = models.DecimalField(
@@ -658,12 +717,14 @@ class Interface(ModularComponentModel, BaseInterface, CabledObjectModel, PathEnd
         max_length=50,
         choices=InterfacePoEModeChoices,
         blank=True,
+        null=True,
         verbose_name=_('PoE mode')
     )
     poe_type = models.CharField(
         max_length=50,
         choices=InterfacePoETypeChoices,
         blank=True,
+        null=True,
         verbose_name=_('PoE type')
     )
     wireless_link = models.ForeignKey(
@@ -679,20 +740,6 @@ class Interface(ModularComponentModel, BaseInterface, CabledObjectModel, PathEnd
         blank=True,
         verbose_name=_('wireless LANs')
     )
-    untagged_vlan = models.ForeignKey(
-        to='ipam.VLAN',
-        on_delete=models.SET_NULL,
-        related_name='interfaces_as_untagged',
-        null=True,
-        blank=True,
-        verbose_name=_('untagged VLAN')
-    )
-    tagged_vlans = models.ManyToManyField(
-        to='ipam.VLAN',
-        related_name='interfaces_as_tagged',
-        blank=True,
-        verbose_name=_('tagged VLANs')
-    )
     vrf = models.ForeignKey(
         to='ipam.VRF',
         on_delete=models.SET_NULL,
@@ -703,6 +750,12 @@ class Interface(ModularComponentModel, BaseInterface, CabledObjectModel, PathEnd
     )
     ip_addresses = GenericRelation(
         to='ipam.IPAddress',
+        content_type_field='assigned_object_type',
+        object_id_field='assigned_object_id',
+        related_query_name='interface'
+    )
+    mac_addresses = GenericRelation(
+        to='dcim.MACAddress',
         content_type_field='assigned_object_type',
         object_id_field='assigned_object_id',
         related_query_name='interface'
@@ -944,6 +997,14 @@ class Interface(ModularComponentModel, BaseInterface, CabledObjectModel, PathEnd
     @property
     def l2vpn_termination(self):
         return self.l2vpn_terminations.first()
+
+    @cached_property
+    def connected_endpoints(self):
+        # If this is a virtual interface, return the remote endpoint of the connected
+        # virtual circuit, if any.
+        if self.is_virtual and hasattr(self, 'virtual_circuit_termination'):
+            return self.virtual_circuit_termination.peer_terminations
+        return super().connected_endpoints
 
 
 #
@@ -1266,7 +1327,7 @@ class InventoryItem(MPTTModel, ComponentModel, TrackingModelMixin):
     clone_fields = ('device', 'parent', 'role', 'manufacturer', 'status', 'part_id')
 
     class Meta:
-        ordering = ('device__id', 'parent__id', '_name')
+        ordering = ('device__id', 'parent__id', 'name')
         indexes = (
             models.Index(fields=('component_type', 'component_id')),
         )

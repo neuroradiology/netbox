@@ -1,17 +1,25 @@
 from django import forms
+from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import ObjectDoesNotExist
 from django.utils.translation import gettext_lazy as _
 
-from circuits.choices import CircuitCommitRateChoices, CircuitPriorityChoices, CircuitStatusChoices
+from circuits.choices import (
+    CircuitCommitRateChoices, CircuitPriorityChoices, CircuitStatusChoices, VirtualCircuitTerminationRoleChoices,
+)
+from circuits.constants import CIRCUIT_TERMINATION_TERMINATION_TYPES
 from circuits.models import *
 from dcim.models import Site
 from ipam.models import ASN
 from netbox.choices import DistanceUnitChoices
 from netbox.forms import NetBoxModelBulkEditForm
 from tenancy.models import Tenant
-from utilities.forms import add_blank_choice
-from utilities.forms.fields import ColorField, CommentField, DynamicModelChoiceField, DynamicModelMultipleChoiceField
-from utilities.forms.rendering import FieldSet, TabbedGroups
-from utilities.forms.widgets import BulkEditNullBooleanSelect, DatePicker, NumberWithOptions
+from utilities.forms import add_blank_choice, get_field_value
+from utilities.forms.fields import (
+    ColorField, CommentField, ContentTypeChoiceField, DynamicModelChoiceField, DynamicModelMultipleChoiceField,
+)
+from utilities.forms.rendering import FieldSet
+from utilities.forms.widgets import BulkEditNullBooleanSelect, DatePicker, HTMXSelect, NumberWithOptions
+from utilities.templatetags.builtins.filters import bettertitle
 
 __all__ = (
     'CircuitBulkEditForm',
@@ -22,6 +30,8 @@ __all__ = (
     'ProviderBulkEditForm',
     'ProviderAccountBulkEditForm',
     'ProviderNetworkBulkEditForm',
+    'VirtualCircuitBulkEditForm',
+    'VirtualCircuitTerminationBulkEditForm',
 )
 
 
@@ -197,15 +207,18 @@ class CircuitTerminationBulkEditForm(NetBoxModelBulkEditForm):
         max_length=200,
         required=False
     )
-    site = DynamicModelChoiceField(
-        label=_('Site'),
-        queryset=Site.objects.all(),
-        required=False
+    termination_type = ContentTypeChoiceField(
+        queryset=ContentType.objects.filter(model__in=CIRCUIT_TERMINATION_TERMINATION_TYPES),
+        widget=HTMXSelect(method='post', attrs={'hx-select': '#form_fields'}),
+        required=False,
+        label=_('Termination type')
     )
-    provider_network = DynamicModelChoiceField(
-        label=_('Provider Network'),
-        queryset=ProviderNetwork.objects.all(),
-        required=False
+    termination = DynamicModelChoiceField(
+        label=_('Termination'),
+        queryset=Site.objects.none(),  # Initial queryset
+        required=False,
+        disabled=True,
+        selector=True
     )
     port_speed = forms.IntegerField(
         required=False,
@@ -225,15 +238,26 @@ class CircuitTerminationBulkEditForm(NetBoxModelBulkEditForm):
     fieldsets = (
         FieldSet(
             'description',
-            TabbedGroups(
-                FieldSet('site', name=_('Site')),
-                FieldSet('provider_network', name=_('Provider Network')),
-            ),
+            'termination_type', 'termination',
             'mark_connected', name=_('Circuit Termination')
         ),
         FieldSet('port_speed', 'upstream_speed', name=_('Termination Details')),
     )
-    nullable_fields = ('description')
+    nullable_fields = ('description', 'termination')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if termination_type_id := get_field_value(self, 'termination_type'):
+            try:
+                termination_type = ContentType.objects.get(pk=termination_type_id)
+                model = termination_type.model_class()
+                self.fields['termination'].queryset = model.objects.all()
+                self.fields['termination'].widget.attrs['selector'] = model._meta.label_lower
+                self.fields['termination'].disabled = False
+                self.fields['termination'].label = _(bettertitle(model._meta.verbose_name))
+            except ObjectDoesNotExist:
+                pass
 
 
 class CircuitGroupBulkEditForm(NetBoxModelBulkEditForm):
@@ -271,3 +295,62 @@ class CircuitGroupAssignmentBulkEditForm(NetBoxModelBulkEditForm):
         FieldSet('circuit', 'priority'),
     )
     nullable_fields = ('priority',)
+
+
+class VirtualCircuitBulkEditForm(NetBoxModelBulkEditForm):
+    provider_network = DynamicModelChoiceField(
+        label=_('Provider network'),
+        queryset=ProviderNetwork.objects.all(),
+        required=False
+    )
+    provider_account = DynamicModelChoiceField(
+        label=_('Provider account'),
+        queryset=ProviderAccount.objects.all(),
+        required=False
+    )
+    status = forms.ChoiceField(
+        label=_('Status'),
+        choices=add_blank_choice(CircuitStatusChoices),
+        required=False,
+        initial=''
+    )
+    tenant = DynamicModelChoiceField(
+        label=_('Tenant'),
+        queryset=Tenant.objects.all(),
+        required=False
+    )
+    description = forms.CharField(
+        label=_('Description'),
+        max_length=100,
+        required=False
+    )
+    comments = CommentField()
+
+    model = VirtualCircuit
+    fieldsets = (
+        FieldSet('provider_network', 'provider_account', 'status', 'description', name=_('Virtual circuit')),
+        FieldSet('tenant', name=_('Tenancy')),
+    )
+    nullable_fields = (
+        'provider_account', 'tenant', 'description', 'comments',
+    )
+
+
+class VirtualCircuitTerminationBulkEditForm(NetBoxModelBulkEditForm):
+    role = forms.ChoiceField(
+        label=_('Role'),
+        choices=add_blank_choice(VirtualCircuitTerminationRoleChoices),
+        required=False,
+        initial=''
+    )
+    description = forms.CharField(
+        label=_('Description'),
+        max_length=200,
+        required=False
+    )
+
+    model = VirtualCircuitTermination
+    fieldsets = (
+        FieldSet('role', 'description'),
+    )
+    nullable_fields = ('description',)

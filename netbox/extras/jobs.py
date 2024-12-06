@@ -22,9 +22,7 @@ class ScriptJob(JobRunner):
     """
 
     class Meta:
-        # An explicit job name is not set because it doesn't make sense in this context. Currently, there's no scenario
-        # where jobs other than this one are used. Therefore, it is hidden, resulting in a cleaner job table overview.
-        name = ''
+        name = 'Run Script'
 
     def run_script(self, script, request, data, commit):
         """
@@ -49,7 +47,6 @@ class ScriptJob(JobRunner):
                 script.log_info(message=_("Database changes have been reverted automatically."))
                 if script.failed:
                     logger.warning("Script failed")
-                    raise
 
         except Exception as e:
             if type(e) is AbortScript:
