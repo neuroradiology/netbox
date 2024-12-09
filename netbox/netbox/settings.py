@@ -179,7 +179,7 @@ STORAGE_BACKEND = getattr(configuration, 'STORAGE_BACKEND', None)
 STORAGE_CONFIG = getattr(configuration, 'STORAGE_CONFIG', {})
 TIME_ZONE = getattr(configuration, 'TIME_ZONE', 'UTC')
 TRANSLATION_ENABLED = getattr(configuration, 'TRANSLATION_ENABLED', True)
-BRANCHING_BACKEND = getattr(configuration, 'BRANCHING_BACKEND', None)
+SCRIPT_CONTEXT_MANAGERS = getattr(configuration, 'SCRIPT_CONTEXT_MANAGERS', [])
 
 # Load any dynamic configuration parameters which have been hard-coded in the configuration file
 for param in CONFIG_PARAMS:

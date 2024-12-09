@@ -222,8 +222,8 @@ Enables language translation for the user interface. (This parameter maps to Dja
 
 ---
 
-## BRANCHING_BACKEND
+## SCRIPT_CONTEXT_MANAGERS
 
-Default: None
+Default: []
 
-The dotted path to the desired branching class. If using [netboxlabs-netbox-branching](https://github.com/netboxlabs/netbox-branching) set this to `netbox_branching.backends.BranchingBackend`
+The dotted path to any additional context managers to use when running scripts.

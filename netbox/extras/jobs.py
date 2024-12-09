@@ -1,6 +1,6 @@
 import logging
 import traceback
-from contextlib import nullcontext
+from contextlib import ExitStack, nullcontext
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
@@ -91,6 +91,7 @@ class ScriptJob(JobRunner):
             commit: Passed through to Script.run()
         """
         script = ScriptModel.objects.get(pk=self.job.object_id).python_class()
+        logger = logging.getLogger(f"netbox.scripts.{script.full_name}")
 
         # Add files to form data
         if request:
@@ -101,21 +102,23 @@ class ScriptJob(JobRunner):
         # Add the current request as a property of the script
         script.request = request
 
-        # Execute the script. If commit is True, wrap it with the event_tracking context manager to ensure we process
-        # change logging, event rules, etc.
-        branch = None
-        if settings.BRANCHING_BACKEND:
+        context_managers = []
+        for context_manager_str in settings.SCRIPT_CONTEXT_MANAGERS:
             try:
-                branching_cls = import_string(settings.BRANCHING_BACKEND)
+                context_managers.append(import_string(context_manager_str))
             except AttributeError:
-                logger = logging.getLogger(f"netbox.scripts.{script.full_name}")
-                message = _("Failed to import configured BRANCHING_BACKEND: ") + settings.BRANCHING_BACKEND
+                message = _("Failed to import configured SCRIPT_CONTEXT_MANAGERS: ") + context_manager_str
                 logger.error(message)
                 raise ImproperlyConfigured(message)
 
-            branching_backend = branching_cls()
-            branch = branching_backend.get_active_branch(request)
+        # Execute the script. If commit is True, wrap it with the event_tracking context manager to ensure we process
+        # change logging, event rules, etc.
+        with event_tracking(request) if commit else nullcontext():
+            if context_managers:
+                with ExitStack() as stack:
+                    for cm in context_managers:
+                        stack.enter_context(cm(request))
 
-        with branching_backend.activate_branch(branch) if branch else nullcontext():
-            with event_tracking(request) if commit else nullcontext():
+                    self.run_script(script, request, data, commit)
+            else:
                 self.run_script(script, request, data, commit)
