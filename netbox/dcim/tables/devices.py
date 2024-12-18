@@ -43,14 +43,6 @@ MODULEBAY_STATUS = """
 """
 
 
-def get_cabletermination_row_class(record):
-    if record.mark_connected:
-        return 'success'
-    elif record.cable:
-        return record.cable.get_status_color()
-    return ''
-
-
 #
 # Device roles
 #
@@ -71,7 +63,10 @@ class DeviceRoleTable(NetBoxTable):
         verbose_name=_('VMs')
     )
     color = columns.ColorColumn()
-    vm_role = columns.BooleanColumn()
+    vm_role = columns.BooleanColumn(
+        verbose_name=_('VM role'),
+        false_mark=None
+    )
     config_template = tables.Column(
         linkify=True
     )
@@ -295,6 +290,11 @@ class DeviceComponentTable(NetBoxTable):
         linkify=True,
         order_by=('_name',)
     )
+    device_status = columns.ChoiceFieldColumn(
+        accessor=tables.A('device__status'),
+        verbose_name=_('Device Status'),
+        color=lambda x: x.device.get_status_color(),
+    )
 
     class Meta(NetBoxTable.Meta):
         order_by = ('device', 'name')
@@ -318,6 +318,9 @@ class ModularDeviceComponentTable(DeviceComponentTable):
         verbose_name=_('Inventory Items'),
     )
 
+    class Meta(NetBoxTable.Meta):
+        pass
+
 
 class CableTerminationTable(NetBoxTable):
     cable = tables.Column(
@@ -337,7 +340,16 @@ class CableTerminationTable(NetBoxTable):
     )
     mark_connected = columns.BooleanColumn(
         verbose_name=_('Mark Connected'),
+        false_mark=None
     )
+
+    class Meta:
+        row_attrs = {
+            'data-name': lambda record: record.name,
+            'data-mark-connected': lambda record: "true" if record.mark_connected else "false",
+            'data-cable-status': lambda record: record.cable.status if record.cable else "",
+            'data-type': lambda record: record.type
+        }
 
     def value_link_peer(self, value):
         return ', '.join([
@@ -386,16 +398,13 @@ class DeviceConsolePortTable(ConsolePortTable):
         extra_buttons=CONSOLEPORT_BUTTONS
     )
 
-    class Meta(DeviceComponentTable.Meta):
+    class Meta(CableTerminationTable.Meta, DeviceComponentTable.Meta):
         model = models.ConsolePort
         fields = (
             'pk', 'id', 'name', 'module_bay', 'module', 'label', 'type', 'speed', 'description', 'mark_connected',
             'cable', 'cable_color', 'link_peer', 'connection', 'tags', 'actions'
         )
         default_columns = ('pk', 'name', 'label', 'type', 'speed', 'description', 'cable', 'connection')
-        row_attrs = {
-            'class': get_cabletermination_row_class
-        }
 
 
 class ConsoleServerPortTable(ModularDeviceComponentTable, PathEndpointTable):
@@ -431,16 +440,13 @@ class DeviceConsoleServerPortTable(ConsoleServerPortTable):
         extra_buttons=CONSOLESERVERPORT_BUTTONS
     )
 
-    class Meta(DeviceComponentTable.Meta):
+    class Meta(CableTerminationTable.Meta, DeviceComponentTable.Meta):
         model = models.ConsoleServerPort
         fields = (
             'pk', 'id', 'name', 'module_bay', 'module', 'label', 'type', 'speed', 'description', 'mark_connected',
             'cable', 'cable_color', 'link_peer', 'connection', 'tags', 'actions',
         )
         default_columns = ('pk', 'name', 'label', 'type', 'speed', 'description', 'cable', 'connection')
-        row_attrs = {
-            'class': get_cabletermination_row_class
-        }
 
 
 class PowerPortTable(ModularDeviceComponentTable, PathEndpointTable):
@@ -483,7 +489,7 @@ class DevicePowerPortTable(PowerPortTable):
         extra_buttons=POWERPORT_BUTTONS
     )
 
-    class Meta(DeviceComponentTable.Meta):
+    class Meta(CableTerminationTable.Meta, DeviceComponentTable.Meta):
         model = models.PowerPort
         fields = (
             'pk', 'id', 'name', 'module_bay', 'module', 'label', 'type', 'maximum_draw', 'allocated_draw',
@@ -492,9 +498,6 @@ class DevicePowerPortTable(PowerPortTable):
         default_columns = (
             'pk', 'name', 'label', 'type', 'maximum_draw', 'allocated_draw', 'description', 'cable', 'connection',
         )
-        row_attrs = {
-            'class': get_cabletermination_row_class
-        }
 
 
 class PowerOutletTable(ModularDeviceComponentTable, PathEndpointTable):
@@ -534,7 +537,7 @@ class DevicePowerOutletTable(PowerOutletTable):
         extra_buttons=POWEROUTLET_BUTTONS
     )
 
-    class Meta(DeviceComponentTable.Meta):
+    class Meta(CableTerminationTable.Meta, DeviceComponentTable.Meta):
         model = models.PowerOutlet
         fields = (
             'pk', 'id', 'name', 'module_bay', 'module', 'label', 'type', 'power_port', 'feed_leg', 'description',
@@ -543,9 +546,6 @@ class DevicePowerOutletTable(PowerOutletTable):
         default_columns = (
             'pk', 'name', 'label', 'type', 'power_port', 'feed_leg', 'description', 'cable', 'connection',
         )
-        row_attrs = {
-            'class': get_cabletermination_row_class
-        }
 
 
 class BaseInterfaceTable(NetBoxTable):
@@ -588,6 +588,9 @@ class BaseInterfaceTable(NetBoxTable):
     def value_ip_addresses(self, value):
         return ",".join([str(obj.address) for obj in value.all()])
 
+    def value_tagged_vlans(self, value):
+        return ",".join([str(obj) for obj in value.all()])
+
 
 class InterfaceTable(ModularDeviceComponentTable, BaseInterfaceTable, PathEndpointTable):
     device = tables.Column(
@@ -598,7 +601,8 @@ class InterfaceTable(ModularDeviceComponentTable, BaseInterfaceTable, PathEndpoi
         }
     )
     mgmt_only = columns.BooleanColumn(
-        verbose_name=_('Management Only')
+        verbose_name=_('Management Only'),
+        false_mark=None
     )
     speed_formatted = columns.TemplateColumn(
         template_code='{% load helpers %}{{ value|humanize_speed }}',
@@ -683,7 +687,8 @@ class DeviceInterfaceTable(InterfaceTable):
             'data-virtual': lambda record: "true" if record.is_virtual else "false",
             'data-mark-connected': lambda record: "true" if record.mark_connected else "false",
             'data-cable-status': lambda record: record.cable.status if record.cable else "",
-            'data-type': lambda record: record.type
+            'data-type': lambda record: record.type,
+            'data-connected': lambda record: "connected" if record.mark_connected or record.cable else "disconnected"
         }
 
 
@@ -733,7 +738,7 @@ class DeviceFrontPortTable(FrontPortTable):
         extra_buttons=FRONTPORT_BUTTONS
     )
 
-    class Meta(DeviceComponentTable.Meta):
+    class Meta(CableTerminationTable.Meta, DeviceComponentTable.Meta):
         model = models.FrontPort
         fields = (
             'pk', 'id', 'name', 'module_bay', 'module', 'label', 'type', 'rear_port', 'rear_port_position',
@@ -742,9 +747,6 @@ class DeviceFrontPortTable(FrontPortTable):
         default_columns = (
             'pk', 'name', 'label', 'type', 'rear_port', 'rear_port_position', 'description', 'cable', 'link_peer',
         )
-        row_attrs = {
-            'class': get_cabletermination_row_class
-        }
 
 
 class RearPortTable(ModularDeviceComponentTable, CableTerminationTable):
@@ -783,7 +785,7 @@ class DeviceRearPortTable(RearPortTable):
         extra_buttons=REARPORT_BUTTONS
     )
 
-    class Meta(DeviceComponentTable.Meta):
+    class Meta(CableTerminationTable.Meta, DeviceComponentTable.Meta):
         model = models.RearPort
         fields = (
             'pk', 'id', 'name', 'module_bay', 'module', 'label', 'type', 'positions', 'description', 'mark_connected',
@@ -792,9 +794,6 @@ class DeviceRearPortTable(RearPortTable):
         default_columns = (
             'pk', 'name', 'label', 'type', 'positions', 'description', 'cable', 'link_peer',
         )
-        row_attrs = {
-            'class': get_cabletermination_row_class
-        }
 
 
 class DeviceBayTable(DeviceComponentTable):
@@ -857,13 +856,17 @@ class DeviceDeviceBayTable(DeviceBayTable):
         default_columns = ('pk', 'name', 'label', 'status', 'installed_device', 'description')
 
 
-class ModuleBayTable(DeviceComponentTable):
+class ModuleBayTable(ModularDeviceComponentTable):
     device = tables.Column(
         verbose_name=_('Device'),
         linkify={
             'viewname': 'dcim:device_modulebays',
             'args': [Accessor('device_id')],
         }
+    )
+    parent = tables.Column(
+        linkify=True,
+        verbose_name=_('Parent'),
     )
     installed_module = tables.Column(
         linkify=True,
@@ -886,25 +889,38 @@ class ModuleBayTable(DeviceComponentTable):
         verbose_name=_('Module Status')
     )
 
-    class Meta(DeviceComponentTable.Meta):
+    class Meta(ModularDeviceComponentTable.Meta):
         model = models.ModuleBay
         fields = (
-            'pk', 'id', 'name', 'device', 'label', 'position', 'installed_module', 'module_status', 'module_serial',
-            'module_asset_tag', 'description', 'tags',
+            'pk', 'id', 'name', 'device', 'parent', 'label', 'position', 'installed_module', 'module_status',
+            'module_serial', 'module_asset_tag', 'description', 'tags',
         )
-        default_columns = ('pk', 'name', 'device', 'label', 'installed_module', 'module_status', 'description')
+        default_columns = (
+            'pk', 'name', 'device', 'parent', 'label', 'installed_module', 'module_status', 'description',
+        )
+
+    def render_parent_bay(self, value):
+        return value.name if value else ''
+
+    def render_installed_module(self, value):
+        return value.module_type if value else ''
 
 
 class DeviceModuleBayTable(ModuleBayTable):
+    name = columns.MPTTColumn(
+        verbose_name=_('Name'),
+        linkify=True,
+        order_by=Accessor('_name')
+    )
     actions = columns.ActionsColumn(
         extra_buttons=MODULEBAY_BUTTONS
     )
 
-    class Meta(DeviceComponentTable.Meta):
+    class Meta(ModuleBayTable.Meta):
         model = models.ModuleBay
         fields = (
-            'pk', 'id', 'name', 'label', 'position', 'installed_module', 'module_status', 'module_serial', 'module_asset_tag',
-            'description', 'tags', 'actions',
+            'pk', 'id', 'parent', 'name', 'label', 'position', 'installed_module', 'module_status', 'module_serial',
+            'module_asset_tag', 'description', 'tags', 'actions',
         )
         default_columns = ('pk', 'name', 'label', 'installed_module', 'module_status', 'description')
 
@@ -931,6 +947,7 @@ class InventoryItemTable(DeviceComponentTable):
     )
     discovered = columns.BooleanColumn(
         verbose_name=_('Discovered'),
+        false_mark=None
     )
     parent = tables.Column(
         linkify=True,
@@ -1038,7 +1055,7 @@ class VirtualDeviceContextTable(TenancyColumnsMixin, NetBoxTable):
     )
     device = tables.TemplateColumn(
         verbose_name=_('Device'),
-        order_by=('_name',),
+        order_by=('device___name',),
         template_code=DEVICE_LINK,
         linkify=True
     )

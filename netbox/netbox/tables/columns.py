@@ -1,3 +1,4 @@
+import zoneinfo
 from dataclasses import dataclass
 from typing import Optional
 from urllib.parse import quote
@@ -83,6 +84,8 @@ class DateTimeColumn(tables.Column):
 
     def render(self, value):
         if value:
+            current_tz = zoneinfo.ZoneInfo(settings.TIME_ZONE)
+            value = value.astimezone(current_tz)
             return f"{value.date().isoformat()} {value.time().isoformat(timespec=self.timespec)}"
 
     def value(self, value):
@@ -170,6 +173,7 @@ class ToggleColumn(tables.CheckBoxColumn):
             kwargs['attrs'] = {
                 'th': {
                     'class': 'w-1',
+                    'aria-label': _('Select all'),
                 },
                 'td': {
                     'class': 'w-1',
@@ -191,14 +195,23 @@ class BooleanColumn(tables.Column):
     Custom implementation of BooleanColumn to render a nicely-formatted checkmark or X icon instead of a Unicode
     character.
     """
+    TRUE_MARK = mark_safe('<span class="text-success"><i class="mdi mdi-check-bold"></i></span>')
+    FALSE_MARK = mark_safe('<span class="text-danger"><i class="mdi mdi-close-thick"></i></span>')
+    EMPTY_MARK = mark_safe('<span class="text-muted">&mdash;</span>')  # Placeholder
+
+    def __init__(self, *args, true_mark=TRUE_MARK, false_mark=FALSE_MARK, **kwargs):
+        self.true_mark = true_mark
+        self.false_mark = false_mark
+        super().__init__(*args, **kwargs)
+
     def render(self, value):
-        if value:
-            rendered = '<span class="text-success"><i class="mdi mdi-check-bold"></i></span>'
-        elif value is None:
-            rendered = '<span class="text-muted">&mdash;</span>'
-        else:
-            rendered = '<span class="text-danger"><i class="mdi mdi-close-thick"></i></span>'
-        return mark_safe(rendered)
+        if value is None:
+            return self.EMPTY_MARK
+        if value and self.true_mark:
+            return self.true_mark
+        if not value and self.false_mark:
+            return self.false_mark
+        return self.EMPTY_MARK
 
     def value(self, value):
         return str(value)
@@ -246,7 +259,7 @@ class ActionsColumn(tables.Column):
 
     def render(self, record, table, **kwargs):
         # Skip dummy records (e.g. available VLANs) or those with no actions
-        if not getattr(record, 'pk', None) or not self.actions:
+        if not getattr(record, 'pk', None) or not (self.actions or self.extra_buttons):
             return ''
 
         model = table.Meta.model
@@ -272,7 +285,7 @@ class ActionsColumn(tables.Column):
                 if len(self.actions) == 1 or (self.split_actions and idx == 0):
                     dropdown_class = attrs.css_class
                     button = (
-                        f'<a class="btn btn-sm btn-{attrs.css_class}" href="{url}{url_appendix}" type="button">'
+                        f'<a class="btn btn-sm btn-{attrs.css_class}" href="{url}{url_appendix}" type="button" aria-label="{attrs.title}">'
                         f'<i class="mdi mdi-{attrs.icon}"></i></a>'
                     )
 
@@ -318,19 +331,26 @@ class ActionsColumn(tables.Column):
 class ChoiceFieldColumn(tables.Column):
     """
     Render a model's static ChoiceField with its value from `get_FOO_display()` as a colored badge. Background color is
-    set by the instance's get_FOO_color() method, if defined.
+    set by the instance's get_FOO_color() method, if defined, or can be overridden by a "color" callable.
     """
     DEFAULT_BG_COLOR = 'secondary'
+
+    def __init__(self, *args, color=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.color = color
 
     def render(self, record, bound_column, value):
         if value in self.empty_values:
             return self.default
 
-        # Determine the background color to use (try calling object.get_FOO_color())
-        try:
-            bg_color = getattr(record, f'get_{bound_column.name}_color')() or self.DEFAULT_BG_COLOR
-        except AttributeError:
-            bg_color = self.DEFAULT_BG_COLOR
+        # Determine the background color to use (use "color" callable if given, else try calling object.get_FOO_color())
+        if self.color:
+            bg_color = self.color(record)
+        else:
+            try:
+                bg_color = getattr(record, f'get_{bound_column.name}_color')() or self.DEFAULT_BG_COLOR
+            except AttributeError:
+                bg_color = self.DEFAULT_BG_COLOR
 
         return mark_safe(f'<span class="badge text-bg-{bg_color}">{value}</span>')
 
@@ -430,7 +450,7 @@ class LinkedCountColumn(tables.Column):
                     f'{k}={getattr(record, v) or settings.FILTERS_NULL_CHOICE_VALUE}'
                     for k, v in self.url_params.items()
                 ])
-            return mark_safe(f'<a href="{url}">{value}</a>')
+            return mark_safe(f'<a href="{url}">{escape(value)}</a>')
         return value
 
     def value(self, value):

@@ -2,7 +2,6 @@ import json
 import platform
 
 from django import __version__ as DJANGO_VERSION
-from django.apps import apps
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import UserPassesTestMixin
@@ -29,12 +28,18 @@ from netbox.config import get_config, PARAMS
 from netbox.views import generic
 from netbox.views.generic.base import BaseObjectView
 from netbox.views.generic.mixins import TableMixin
+from utilities.data import shallow_compare_dict
 from utilities.forms import ConfirmationForm
 from utilities.htmx import htmx_partial
+from utilities.json import ConfigJSONEncoder
 from utilities.query import count_related
-from utilities.views import ContentTypePermissionRequiredMixin, register_model_view
+from utilities.views import ContentTypePermissionRequiredMixin, GetRelatedModelsMixin, register_model_view
 from . import filtersets, forms, tables
+from .choices import DataSourceStatusChoices
+from .jobs import SyncDataSourceJob
 from .models import *
+from .plugins import get_catalog_plugins, get_local_plugins
+from .tables import CatalogPluginTable, PluginVersionTable
 
 
 #
@@ -51,16 +56,12 @@ class DataSourceListView(generic.ObjectListView):
 
 
 @register_model_view(DataSource)
-class DataSourceView(generic.ObjectView):
+class DataSourceView(GetRelatedModelsMixin, generic.ObjectView):
     queryset = DataSource.objects.all()
 
     def get_extra_context(self, request, instance):
-        related_models = (
-            (DataFile.objects.restrict(request.user, 'view').filter(source=instance), 'source_id'),
-        )
-
         return {
-            'related_models': related_models,
+            'related_models': self.get_related_models(request, instance),
         }
 
 
@@ -78,9 +79,16 @@ class DataSourceSyncView(BaseObjectView):
 
     def post(self, request, pk):
         datasource = get_object_or_404(self.queryset, pk=pk)
-        job = datasource.enqueue_sync_job(request)
 
-        messages.success(request, f"Queued job #{job.pk} to sync {datasource}")
+        # Enqueue the sync job & update the DataSource's status
+        job = SyncDataSourceJob.enqueue(instance=datasource, user=request.user)
+        datasource.status = DataSourceStatusChoices.QUEUED
+        DataSource.objects.filter(pk=datasource.pk).update(status=datasource.status)
+
+        messages.success(
+            request,
+            _("Queued job #{id} to sync {datasource}").format(id=job.pk, datasource=datasource)
+        )
         return redirect(datasource.get_absolute_url())
 
 
@@ -177,6 +185,75 @@ class JobBulkDeleteView(generic.BulkDeleteView):
 
 
 #
+# Change logging
+#
+
+class ObjectChangeListView(generic.ObjectListView):
+    queryset = ObjectChange.objects.valid_models()
+    filterset = filtersets.ObjectChangeFilterSet
+    filterset_form = forms.ObjectChangeFilterForm
+    table = tables.ObjectChangeTable
+    template_name = 'core/objectchange_list.html'
+    actions = {
+        'export': {'view'},
+    }
+
+
+@register_model_view(ObjectChange)
+class ObjectChangeView(generic.ObjectView):
+    queryset = ObjectChange.objects.valid_models()
+
+    def get_extra_context(self, request, instance):
+        related_changes = ObjectChange.objects.valid_models().restrict(request.user, 'view').filter(
+            request_id=instance.request_id
+        ).exclude(
+            pk=instance.pk
+        )
+        related_changes_table = tables.ObjectChangeTable(
+            data=related_changes[:50],
+            orderable=False
+        )
+
+        objectchanges = ObjectChange.objects.valid_models().restrict(request.user, 'view').filter(
+            changed_object_type=instance.changed_object_type,
+            changed_object_id=instance.changed_object_id,
+        )
+
+        next_change = objectchanges.filter(time__gt=instance.time).order_by('time').first()
+        prev_change = objectchanges.filter(time__lt=instance.time).order_by('-time').first()
+
+        if not instance.prechange_data and instance.action in ['update', 'delete'] and prev_change:
+            non_atomic_change = True
+            prechange_data = prev_change.postchange_data_clean
+        else:
+            non_atomic_change = False
+            prechange_data = instance.prechange_data_clean
+
+        if prechange_data and instance.postchange_data:
+            diff_added = shallow_compare_dict(
+                prechange_data or dict(),
+                instance.postchange_data_clean or dict(),
+                exclude=['last_updated'],
+            )
+            diff_removed = {
+                x: prechange_data.get(x) for x in diff_added
+            } if prechange_data else {}
+        else:
+            diff_added = None
+            diff_removed = None
+
+        return {
+            'diff_added': diff_added,
+            'diff_removed': diff_removed,
+            'next_change': next_change,
+            'prev_change': prev_change,
+            'related_changes_table': related_changes_table,
+            'related_changes_count': related_changes.count(),
+            'non_atomic_change': non_atomic_change
+        }
+
+
+#
 # Config Revisions
 #
 
@@ -224,7 +301,7 @@ class ConfigRevisionRestoreView(ContentTypePermissionRequiredMixin, View):
         for param in PARAMS:
             params.append((
                 param.name,
-                current_config.data.get(param.name, None),
+                current_config.data.get(param.name, None) if current_config else None,
                 candidate_config.data.get(param.name, None)
             ))
 
@@ -239,7 +316,7 @@ class ConfigRevisionRestoreView(ContentTypePermissionRequiredMixin, View):
 
         candidate_config = get_object_or_404(ConfigRevision, pk=pk)
         candidate_config.activate()
-        messages.success(request, f"Restored configuration revision #{pk}")
+        messages.success(request, _("Restored configuration revision #{id}").format(id=pk))
 
         return redirect(candidate_config.get_absolute_url())
 
@@ -383,9 +460,9 @@ class BackgroundTaskDeleteView(BaseRQView):
             # Remove job id from queue and delete the actual job
             queue.connection.lrem(queue.key, 0, job.id)
             job.delete()
-            messages.success(request, f'Deleted job {job_id}')
+            messages.success(request, _('Job {id} has been deleted.').format(id=job_id))
         else:
-            messages.error(request, f'Error deleting job: {form.errors[0]}')
+            messages.error(request, _('Error deleting job {id}: {error}').format(id=job_id, error=form.errors[0]))
 
         return redirect(reverse('core:background_queue_list'))
 
@@ -398,13 +475,13 @@ class BackgroundTaskRequeueView(BaseRQView):
         try:
             job = RQ_Job.fetch(job_id, connection=get_redis_connection(config['connection_config']),)
         except NoSuchJobError:
-            raise Http404(_("Job {job_id} not found").format(job_id=job_id))
+            raise Http404(_("Job {id} not found.").format(id=job_id))
 
         queue_index = QUEUES_MAP[job.origin]
         queue = get_queue_by_index(queue_index)
 
         requeue_job(job_id, connection=queue.connection, serializer=queue.serializer)
-        messages.success(request, f'You have successfully requeued: {job_id}')
+        messages.success(request, _('Job {id} has been re-enqueued.').format(id=job_id))
         return redirect(reverse('core:background_task', args=[job_id]))
 
 
@@ -416,7 +493,7 @@ class BackgroundTaskEnqueueView(BaseRQView):
         try:
             job = RQ_Job.fetch(job_id, connection=get_redis_connection(config['connection_config']),)
         except NoSuchJobError:
-            raise Http404(_("Job {job_id} not found").format(job_id=job_id))
+            raise Http404(_("Job {id} not found.").format(id=job_id))
 
         queue_index = QUEUES_MAP[job.origin]
         queue = get_queue_by_index(queue_index)
@@ -439,7 +516,7 @@ class BackgroundTaskEnqueueView(BaseRQView):
             registry = ScheduledJobRegistry(queue.name, queue.connection)
             registry.remove(job)
 
-        messages.success(request, f'You have successfully enqueued: {job_id}')
+        messages.success(request, _('Job {id} has been enqueued.').format(id=job_id))
         return redirect(reverse('core:background_task', args=[job_id]))
 
 
@@ -456,11 +533,11 @@ class BackgroundTaskStopView(BaseRQView):
         queue_index = QUEUES_MAP[job.origin]
         queue = get_queue_by_index(queue_index)
 
-        stopped, _ = stop_jobs(queue, job_id)
-        if len(stopped) == 1:
-            messages.success(request, f'You have successfully stopped {job_id}')
+        stopped_jobs = stop_jobs(queue, job_id)[0]
+        if len(stopped_jobs) == 1:
+            messages.success(request, _('Job {id} has been stopped.').format(id=job_id))
         else:
-            messages.error(request, f'Failed to stop {job_id}')
+            messages.error(request, _('Failed to stop job {id}').format(id=job_id))
 
         return redirect(reverse('core:background_task', args=[job_id]))
 
@@ -515,7 +592,7 @@ class WorkerView(BaseRQView):
 
 
 #
-# Plugins
+# System
 #
 
 class SystemView(UserPassesTestMixin, View):
@@ -539,7 +616,7 @@ class SystemView(UserPassesTestMixin, View):
         except (ProgrammingError, IndexError):
             pass
         stats = {
-            'netbox_version': settings.VERSION,
+            'netbox_release': settings.RELEASE,
             'django_version': DJANGO_VERSION,
             'python_version': platform.python_version(),
             'postgresql_version': psql_version,
@@ -548,39 +625,93 @@ class SystemView(UserPassesTestMixin, View):
             'rq_worker_count': Worker.count(get_connection('default')),
         }
 
-        # Plugins
-        plugins = [
-            # Look up app config by package name
-            apps.get_app_config(plugin.rsplit('.', 1)[-1]) for plugin in settings.PLUGINS
-        ]
-
         # Configuration
-        try:
-            config = ConfigRevision.objects.get(pk=cache.get('config_version'))
-        except ConfigRevision.DoesNotExist:
-            # Fall back to using the active config data if no record is found
-            config = ConfigRevision(data=get_config().defaults)
+        config = get_config()
 
         # Raw data export
         if 'export' in request.GET:
+            stats['netbox_release'] = stats['netbox_release'].asdict()
+            params = [param.name for param in PARAMS]
             data = {
                 **stats,
-                'plugins': {
-                    plugin.name: plugin.version for plugin in plugins
-                },
+                'plugins': settings.PLUGINS,
                 'config': {
-                    k: config.data[k] for k in sorted(config.data)
+                    k: getattr(config, k) for k in sorted(params)
                 },
             }
-            response = HttpResponse(json.dumps(data, indent=4), content_type='text/json')
+            response = HttpResponse(json.dumps(data, cls=ConfigJSONEncoder, indent=4), content_type='text/json')
             response['Content-Disposition'] = 'attachment; filename="netbox.json"'
             return response
 
-        plugins_table = tables.PluginTable(plugins, orderable=False)
-        plugins_table.configure(request)
+        # Serialize any CustomValidator classes
+        if hasattr(config, 'CUSTOM_VALIDATORS') and config.CUSTOM_VALIDATORS:
+            config.CUSTOM_VALIDATORS = json.dumps(config.CUSTOM_VALIDATORS, cls=ConfigJSONEncoder, indent=4)
 
         return render(request, 'core/system.html', {
             'stats': stats,
-            'plugins_table': plugins_table,
             'config': config,
+        })
+
+
+#
+# Plugins
+#
+
+class BasePluginView(UserPassesTestMixin, View):
+    CACHE_KEY_CATALOG_ERROR = 'plugins-catalog-error'
+
+    def test_func(self):
+        return self.request.user.is_staff
+
+    def get_cached_plugins(self, request):
+        catalog_plugins = {}
+        catalog_plugins_error = cache.get(self.CACHE_KEY_CATALOG_ERROR, default=False)
+        if not catalog_plugins_error:
+            catalog_plugins = get_catalog_plugins()
+            if not catalog_plugins:
+                # Cache for 5 minutes to avoid spamming connection
+                cache.set(self.CACHE_KEY_CATALOG_ERROR, True, 300)
+                messages.warning(request, _("Plugins catalog could not be loaded"))
+
+        return get_local_plugins(catalog_plugins)
+
+
+class PluginListView(BasePluginView):
+
+    def get(self, request):
+        q = request.GET.get('q', None)
+
+        plugins = self.get_cached_plugins(request).values()
+        if q:
+            plugins = [obj for obj in plugins if q.casefold() in obj.title_short.casefold()]
+
+        table = CatalogPluginTable(plugins, user=request.user)
+        table.configure(request)
+
+        # If this is an HTMX request, return only the rendered table HTML
+        if htmx_partial(request):
+            return render(request, 'htmx/table.html', {
+                'table': table,
+            })
+
+        return render(request, 'core/plugin_list.html', {
+            'table': table,
+        })
+
+
+class PluginView(BasePluginView):
+
+    def get(self, request, name):
+
+        plugins = self.get_cached_plugins(request)
+        if name not in plugins:
+            raise Http404(_("Plugin {name} not found").format(name=name))
+        plugin = plugins[name]
+
+        table = PluginVersionTable(plugin.release_recent_history, user=request.user)
+        table.configure(request)
+
+        return render(request, 'core/plugin.html', {
+            'plugin': plugin,
+            'table': table,
         })

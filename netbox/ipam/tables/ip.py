@@ -51,7 +51,7 @@ IPADDRESS_LINK = """
 {% if record.pk %}
     <a href="{{ record.get_absolute_url }}" id="ipaddress_{{ record.pk }}">{{ record.address }}</a>
 {% elif perms.ipam.add_ipaddress %}
-    <a href="{% url 'ipam:ipaddress_add' %}?address={{ record.1 }}{% if object.vrf %}&vrf={{ object.vrf.pk }}{% endif %}{% if object.tenant %}&tenant={{ object.tenant.pk }}{% endif %}" class="btn btn-sm btn-success">{% if record.0 <= 65536 %}{{ record.0 }}{% else %}Many{% endif %} IP{{ record.0|pluralize }} available</a>
+    <a href="{% url 'ipam:ipaddress_add' %}?address={{ record.1 }}{% if object.vrf %}&vrf={{ object.vrf.pk }}{% endif %}{% if object.tenant %}&tenant={{ object.tenant.pk }}{% endif %}&return_url={% url 'ipam:prefix_ipaddresses' pk=object.pk %}" class="btn btn-sm btn-success">{% if record.0 <= 65536 %}{{ record.0 }}{% else %}Many{% endif %} IP{{ record.0|pluralize }} available</a>
 {% else %}
     {% if record.0 <= 65536 %}{{ record.0 }}{% else %}Many{% endif %} IP{{ record.0|pluralize }} available
 {% endif %}
@@ -86,7 +86,8 @@ class RIRTable(NetBoxTable):
         linkify=True
     )
     is_private = columns.BooleanColumn(
-        verbose_name=_('Private')
+        verbose_name=_('Private'),
+        false_mark=None
     )
     aggregate_count = columns.LinkedCountColumn(
         viewname='ipam:aggregate_list',
@@ -258,10 +259,12 @@ class PrefixTable(TenancyColumnsMixin, NetBoxTable):
         linkify=True
     )
     is_pool = columns.BooleanColumn(
-        verbose_name=_('Pool')
+        verbose_name=_('Pool'),
+        false_mark=None
     )
     mark_utilized = columns.BooleanColumn(
-        verbose_name=_('Marked Utilized')
+        verbose_name=_('Marked Utilized'),
+        false_mark=None
     )
     utilization = PrefixUtilizationColumn(
         verbose_name=_('Utilization'),
@@ -314,7 +317,8 @@ class IPRangeTable(TenancyColumnsMixin, NetBoxTable):
         linkify=True
     )
     mark_utilized = columns.BooleanColumn(
-        verbose_name=_('Marked Utilized')
+        verbose_name=_('Marked Utilized'),
+        false_mark=None
     )
     utilization = columns.UtilizationColumn(
         verbose_name=_('Utilization'),
@@ -386,7 +390,8 @@ class IPAddressTable(TenancyColumnsMixin, NetBoxTable):
     assigned = columns.BooleanColumn(
         accessor='assigned_object_id',
         linkify=lambda record: record.assigned_object.get_absolute_url(),
-        verbose_name=_('Assigned')
+        verbose_name=_('Assigned'),
+        false_mark=None
     )
     comments = columns.MarkdownColumn(
         verbose_name=_('Comments'),

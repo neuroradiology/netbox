@@ -1,5 +1,4 @@
 from django import forms
-from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 
 from circuits.choices import *
@@ -11,6 +10,8 @@ from utilities.forms.fields import CSVChoiceField, CSVModelChoiceField, SlugFiel
 
 __all__ = (
     'CircuitImportForm',
+    'CircuitGroupAssignmentImportForm',
+    'CircuitGroupImportForm',
     'CircuitTerminationImportForm',
     'CircuitTerminationImportRelatedForm',
     'CircuitTypeImportForm',
@@ -66,9 +67,6 @@ class CircuitTypeImportForm(NetBoxModelImportForm):
     class Meta:
         model = CircuitType
         fields = ('name', 'slug', 'color', 'description', 'tags')
-        help_texts = {
-            'color': mark_safe(_('RGB color in hexadecimal. Example:') + ' <code>00ff00</code>'),
-        }
 
 
 class CircuitImportForm(NetBoxModelImportForm):
@@ -153,3 +151,24 @@ class CircuitTerminationImportForm(NetBoxModelImportForm, BaseCircuitTermination
             'circuit', 'term_side', 'site', 'provider_network', 'port_speed', 'upstream_speed', 'xconnect_id',
             'pp_info', 'description', 'tags'
         ]
+
+
+class CircuitGroupImportForm(NetBoxModelImportForm):
+    tenant = CSVModelChoiceField(
+        label=_('Tenant'),
+        queryset=Tenant.objects.all(),
+        required=False,
+        to_field_name='name',
+        help_text=_('Assigned tenant')
+    )
+
+    class Meta:
+        model = CircuitGroup
+        fields = ('name', 'slug', 'description', 'tenant', 'tags')
+
+
+class CircuitGroupAssignmentImportForm(NetBoxModelImportForm):
+
+    class Meta:
+        model = CircuitGroupAssignment
+        fields = ('circuit', 'group', 'priority')
