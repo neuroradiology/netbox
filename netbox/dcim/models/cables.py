@@ -16,6 +16,7 @@ from dcim.fields import PathField
 from dcim.utils import decompile_path_node, object_to_path_node
 from netbox.models import ChangeLoggedModel, PrimaryModel
 from utilities.conversion import to_meters
+from utilities.exceptions import AbortRequest
 from utilities.fields import ColorField
 from utilities.querysets import RestrictedQuerySet
 from wireless.models import WirelessLink
@@ -237,8 +238,10 @@ class Cable(PrimaryModel):
             for termination in self.b_terminations:
                 if not termination.pk or termination not in b_terminations:
                     CableTermination(cable=self, cable_end='B', termination=termination).save()
-
-        trace_paths.send(Cable, instance=self, created=_created)
+        try:
+            trace_paths.send(Cable, instance=self, created=_created)
+        except UnsupportedCablePath as e:
+            raise AbortRequest(e)
 
     def get_status_color(self):
         return LinkStatusChoices.colors.get(self.status)
@@ -533,7 +536,7 @@ class CablePath(models.Model):
 
         # Ensure all originating terminations are attached to the same link
         if len(terminations) > 1 and not all(t.link == terminations[0].link for t in terminations[1:]):
-            raise UnsupportedCablePath(_("All originating terminations must start must be attached to the same link"))
+            raise UnsupportedCablePath(_("All originating terminations must be attached to the same link"))
 
         path = []
         position_stack = []
