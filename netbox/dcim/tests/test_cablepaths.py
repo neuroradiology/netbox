@@ -6,6 +6,7 @@ from dcim.exceptions import UnsupportedCablePath
 from dcim.models import *
 from dcim.svg import CableTraceSVG
 from dcim.utils import object_to_path_node
+from utilities.exceptions import AbortRequest
 
 
 class CablePathTestCase(TestCase):
@@ -2324,7 +2325,7 @@ class CablePathTestCase(TestCase):
             label='C3'
         )
 
-        with self.assertRaises(UnsupportedCablePath):
+        with self.assertRaises(AbortRequest):
             cable3.save()
 
         self.assertPathDoesNotExist(
