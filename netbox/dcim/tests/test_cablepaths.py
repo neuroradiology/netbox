@@ -2306,7 +2306,7 @@ class CablePathTestCase(TestCase):
             b_terminations=[frontport1, frontport3],
             label='C1'
         )
-        with self.assertRaises(UnsupportedCablePath):
+        with self.assertRaises(AbortRequest):
             cable1.save()
 
         self.assertPathDoesNotExist(
