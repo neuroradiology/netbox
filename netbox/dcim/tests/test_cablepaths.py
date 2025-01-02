@@ -2,7 +2,6 @@ from django.test import TestCase
 
 from circuits.models import *
 from dcim.choices import LinkStatusChoices
-from dcim.exceptions import UnsupportedCablePath
 from dcim.models import *
 from dcim.svg import CableTraceSVG
 from dcim.utils import object_to_path_node
