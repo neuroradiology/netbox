@@ -180,8 +180,10 @@ class ObjectListView(BaseMultiObjectView, ActionsMixin, TableMixin):
         # * Otherwise set to None
         if self.filterset_form:
             filterset_form = self.filterset_form(request.GET)
+            table.filterset_form = self.filterset_form(request.GET)
         else:
             filterset_form = None
+            table.filterset_form = None
 
         # If this is an HTMX request, return only the rendered table HTML
         if htmx_partial(request):
@@ -196,7 +198,6 @@ class ObjectListView(BaseMultiObjectView, ActionsMixin, TableMixin):
                 'model': model,
                 'actions': actions,
             })
-
         context = {
             'model': model,
             'table': table,

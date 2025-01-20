@@ -34,7 +34,6 @@ def getfield(form, fieldname):
 
 @register.filter()
 def get_filter_field(form, fieldname):
-
     return getfield(form, f'{fieldname}') or getfield(form, f'{fieldname}_id')
 
 
@@ -127,11 +126,21 @@ def render_field(field, bulk_nullable=False, label=None):
 
 
 @register.inclusion_tag('form_helpers/render_table_filter_field.html')
-def render_table_filter_field(field, table, request):
+def render_table_filter_field(fieldname, table, request):
     """
     Render a single form field for table column filters from template
     """
     url = ""
+    field = None
+
+    # Does this table have a filterset form?
+    if table.filterset_form is not None:
+        # Get the filterset field
+        field = get_filter_field(table.filterset_form, fieldname)
+
+    # Return if no filterset field
+    if field is None:
+        return {}
 
     # Handle filter forms
     if table:
