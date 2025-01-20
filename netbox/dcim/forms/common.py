@@ -43,7 +43,6 @@ class InterfaceCommonForm(forms.Form):
         super().clean()
 
         parent_field = 'device' if 'device' in self.cleaned_data else 'virtual_machine'
-        interface_mode = get_field_value(self, parent_field)
         if 'tagged_vlans' in self.fields.keys():
             tagged_vlans = self.cleaned_data.get('tagged_vlans') if self.is_bound else \
                 self.get_initial_for_field(self.fields['tagged_vlans'], 'tagged_vlans')

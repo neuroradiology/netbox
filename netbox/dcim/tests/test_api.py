@@ -14,7 +14,7 @@ from ipam.models import ASN, RIR, VLAN, VRF
 from netbox.api.serializers import GenericObjectSerializer
 from tenancy.models import Tenant
 from users.models import User
-from utilities.testing import APITestCase, APIViewTestCases, create_test_device, disable_warnings
+from utilities.testing import APITestCase, APIViewTestCases, create_test_device
 from virtualization.models import Cluster, ClusterType
 from wireless.choices import WirelessChannelChoices
 from wireless.models import WirelessLAN
@@ -1782,8 +1782,6 @@ class InterfaceTest(Mixins.ComponentTraceMixin, APIViewTestCases.APIViewTestCase
         POST a single object without permission.
         """
         self.add_permissions('dcim.add_interface')
-        url = self._get_list_url()
-        initial_count = self._get_queryset().count()
 
         device = Device.objects.first()
         vlans = VLAN.objects.all()[0:3]
