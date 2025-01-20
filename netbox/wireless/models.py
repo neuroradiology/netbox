@@ -4,6 +4,7 @@ from django.utils.translation import gettext_lazy as _
 
 from dcim.choices import LinkStatusChoices
 from dcim.constants import WIRELESS_IFACE_TYPES
+from dcim.models.mixins import CachedScopeMixin
 from netbox.models import NestedGroupModel, PrimaryModel
 from netbox.models.mixins import DistanceMixin
 from .choices import *
@@ -24,13 +25,15 @@ class WirelessAuthenticationBase(models.Model):
         max_length=50,
         choices=WirelessAuthTypeChoices,
         blank=True,
+        null=True,
         verbose_name=_("authentication type"),
     )
     auth_cipher = models.CharField(
         verbose_name=_('authentication cipher'),
         max_length=50,
         choices=WirelessAuthCipherChoices,
-        blank=True
+        blank=True,
+        null=True
     )
     auth_psk = models.CharField(
         max_length=PSK_MAX_LENGTH,
@@ -49,7 +52,8 @@ class WirelessLANGroup(NestedGroupModel):
     name = models.CharField(
         verbose_name=_('name'),
         max_length=100,
-        unique=True
+        unique=True,
+        db_collation="natural_sort"
     )
     slug = models.SlugField(
         verbose_name=_('slug'),
@@ -69,7 +73,7 @@ class WirelessLANGroup(NestedGroupModel):
         verbose_name_plural = _('wireless LAN groups')
 
 
-class WirelessLAN(WirelessAuthenticationBase, PrimaryModel):
+class WirelessLAN(WirelessAuthenticationBase, CachedScopeMixin, PrimaryModel):
     """
     A wireless network formed among an arbitrary number of access point and clients.
     """
@@ -105,7 +109,7 @@ class WirelessLAN(WirelessAuthenticationBase, PrimaryModel):
         null=True
     )
 
-    clone_fields = ('ssid', 'group', 'tenant', 'description')
+    clone_fields = ('ssid', 'group', 'scope_type', 'scope_id', 'tenant', 'description')
 
     class Meta:
         ordering = ('ssid', 'pk')

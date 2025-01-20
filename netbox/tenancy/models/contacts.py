@@ -56,7 +56,8 @@ class Contact(PrimaryModel):
     )
     name = models.CharField(
         verbose_name=_('name'),
-        max_length=100
+        max_length=100,
+        db_collation="natural_sort"
     )
     title = models.CharField(
         verbose_name=_('title'),
@@ -125,7 +126,8 @@ class ContactAssignment(CustomFieldsMixin, ExportTemplatesMixin, TagsMixin, Chan
         verbose_name=_('priority'),
         max_length=50,
         choices=ContactPriorityChoices,
-        blank=True
+        blank=True,
+        null=True
     )
 
     clone_fields = ('object_type', 'object_id', 'role', 'priority')

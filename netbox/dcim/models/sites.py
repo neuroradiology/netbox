@@ -8,7 +8,6 @@ from dcim.choices import *
 from dcim.constants import *
 from netbox.models import NestedGroupModel, PrimaryModel
 from netbox.models.features import ContactsMixin, ImageAttachmentsMixin
-from utilities.fields import NaturalOrderingField
 
 __all__ = (
     'Location',
@@ -28,6 +27,12 @@ class Region(ContactsMixin, NestedGroupModel):
     states, and/or cities. Regions are recursively nested into a hierarchy: all sites belonging to a child region are
     also considered to be members of its parent and ancestor region(s).
     """
+    prefixes = GenericRelation(
+        to='ipam.Prefix',
+        content_type_field='scope_type',
+        object_id_field='scope_id',
+        related_query_name='region'
+    )
     vlan_groups = GenericRelation(
         to='ipam.VLANGroup',
         content_type_field='scope_type',
@@ -78,6 +83,12 @@ class SiteGroup(ContactsMixin, NestedGroupModel):
     within corporate sites you might distinguish between offices and data centers. Like regions, site groups can be
     nested recursively to form a hierarchy.
     """
+    prefixes = GenericRelation(
+        to='ipam.Prefix',
+        content_type_field='scope_type',
+        object_id_field='scope_id',
+        related_query_name='site_group'
+    )
     vlan_groups = GenericRelation(
         to='ipam.VLANGroup',
         content_type_field='scope_type',
@@ -131,12 +142,8 @@ class Site(ContactsMixin, ImageAttachmentsMixin, PrimaryModel):
         verbose_name=_('name'),
         max_length=100,
         unique=True,
-        help_text=_("Full name of the site")
-    )
-    _name = NaturalOrderingField(
-        target_field='name',
-        max_length=100,
-        blank=True
+        help_text=_("Full name of the site"),
+        db_collation="natural_sort"
     )
     slug = models.SlugField(
         verbose_name=_('slug'),
@@ -182,7 +189,8 @@ class Site(ContactsMixin, ImageAttachmentsMixin, PrimaryModel):
         blank=True
     )
     time_zone = TimeZoneField(
-        blank=True
+        blank=True,
+        null=True
     )
     physical_address = models.CharField(
         verbose_name=_('physical address'),
@@ -214,6 +222,12 @@ class Site(ContactsMixin, ImageAttachmentsMixin, PrimaryModel):
     )
 
     # Generic relations
+    prefixes = GenericRelation(
+        to='ipam.Prefix',
+        content_type_field='scope_type',
+        object_id_field='scope_id',
+        related_query_name='site'
+    )
     vlan_groups = GenericRelation(
         to='ipam.VLANGroup',
         content_type_field='scope_type',
@@ -227,7 +241,7 @@ class Site(ContactsMixin, ImageAttachmentsMixin, PrimaryModel):
     )
 
     class Meta:
-        ordering = ('_name',)
+        ordering = ('name',)
         verbose_name = _('site')
         verbose_name_plural = _('sites')
 
@@ -273,6 +287,12 @@ class Location(ContactsMixin, ImageAttachmentsMixin, NestedGroupModel):
     )
 
     # Generic relations
+    prefixes = GenericRelation(
+        to='ipam.Prefix',
+        content_type_field='scope_type',
+        object_id_field='scope_id',
+        related_query_name='location'
+    )
     vlan_groups = GenericRelation(
         to='ipam.VLANGroup',
         content_type_field='scope_type',
