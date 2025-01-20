@@ -8,6 +8,7 @@ from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 
 from core.models import ObjectType
+from dcim.models.mixins import CachedScopeMixin
 from ipam.choices import *
 from ipam.constants import *
 from ipam.fields import IPNetworkField, IPAddressField
@@ -197,22 +198,15 @@ class Role(OrganizationalModel):
         return self.name
 
 
-class Prefix(ContactsMixin, GetAvailablePrefixesMixin, PrimaryModel):
+class Prefix(ContactsMixin, GetAvailablePrefixesMixin, CachedScopeMixin, PrimaryModel):
     """
-    A Prefix represents an IPv4 or IPv6 network, including mask length. Prefixes can optionally be assigned to Sites and
-    VRFs. A Prefix must be assigned a status and may optionally be assigned a used-define Role. A Prefix can also be
-    assigned to a VLAN where appropriate.
+    A Prefix represents an IPv4 or IPv6 network, including mask length. Prefixes can optionally be scoped to certain
+    areas and/or assigned to VRFs. A Prefix must be assigned a status and may optionally be assigned a used-define Role.
+    A Prefix can also be assigned to a VLAN where appropriate.
     """
     prefix = IPNetworkField(
         verbose_name=_('prefix'),
         help_text=_('IPv4 or IPv6 network with mask')
-    )
-    site = models.ForeignKey(
-        to='dcim.Site',
-        on_delete=models.PROTECT,
-        related_name='prefixes',
-        blank=True,
-        null=True
     )
     vrf = models.ForeignKey(
         to='ipam.VRF',
@@ -275,7 +269,7 @@ class Prefix(ContactsMixin, GetAvailablePrefixesMixin, PrimaryModel):
     objects = PrefixQuerySet.as_manager()
 
     clone_fields = (
-        'site', 'vrf', 'tenant', 'vlan', 'status', 'role', 'is_pool', 'mark_utilized', 'description',
+        'scope_type', 'scope_id', 'vrf', 'tenant', 'vlan', 'status', 'role', 'is_pool', 'mark_utilized', 'description',
     )
 
     class Meta:
@@ -322,6 +316,9 @@ class Prefix(ContactsMixin, GetAvailablePrefixesMixin, PrimaryModel):
 
             # Clear host bits from prefix
             self.prefix = self.prefix.cidr
+
+        # Cache objects associated with the terminating object (for filtering)
+        self.cache_related_objects()
 
         super().save(*args, **kwargs)
 
@@ -421,7 +418,9 @@ class Prefix(ContactsMixin, GetAvailablePrefixesMixin, PrimaryModel):
         available_ips = prefix - child_ips - netaddr.IPSet(child_ranges)
 
         # IPv6 /127's, pool, or IPv4 /31-/32 sets are fully usable
-        if (self.family == 6 and self.prefix.prefixlen >= 127) or self.is_pool or (self.family == 4 and self.prefix.prefixlen >= 31):
+        if (self.family == 6 and self.prefix.prefixlen >= 127) or self.is_pool or (
+                self.family == 4 and self.prefix.prefixlen >= 31
+        ):
             return available_ips
 
         if self.family == 4:
@@ -564,15 +563,31 @@ class IPRange(ContactsMixin, PrimaryModel):
                 })
 
             # Check for overlapping ranges
-            overlapping_range = IPRange.objects.exclude(pk=self.pk).filter(vrf=self.vrf).filter(
-                Q(start_address__gte=self.start_address, start_address__lte=self.end_address) |  # Starts inside
-                Q(end_address__gte=self.start_address, end_address__lte=self.end_address) |  # Ends inside
-                Q(start_address__lte=self.start_address, end_address__gte=self.end_address)  # Starts & ends outside
-            ).first()
-            if overlapping_range:
+            overlapping_ranges = (
+                IPRange.objects.exclude(pk=self.pk)
+                .filter(vrf=self.vrf)
+                .filter(
+                    # Starts inside
+                    Q(
+                        start_address__host__inet__gte=self.start_address.ip,
+                        start_address__host__inet__lte=self.end_address.ip,
+                    ) |
+                    # Ends inside
+                    Q(
+                        end_address__host__inet__gte=self.start_address.ip,
+                        end_address__host__inet__lte=self.end_address.ip,
+                    ) |
+                    # Starts & ends outside
+                    Q(
+                        start_address__host__inet__lte=self.start_address.ip,
+                        end_address__host__inet__gte=self.end_address.ip,
+                    )
+                )
+            )
+            if overlapping_ranges.exists():
                 raise ValidationError(
                     _("Defined addresses overlap with range {overlapping_range} in VRF {vrf}").format(
-                        overlapping_range=overlapping_range,
+                        overlapping_range=overlapping_ranges.first(),
                         vrf=self.vrf
                     ))
 
@@ -722,6 +737,7 @@ class IPAddress(ContactsMixin, PrimaryModel):
         max_length=50,
         choices=IPAddressRoleChoices,
         blank=True,
+        null=True,
         help_text=_('The functional role of this IP')
     )
     assigned_object_type = models.ForeignKey(
@@ -868,10 +884,12 @@ class IPAddress(ContactsMixin, PrimaryModel):
 
             # can't use is_primary_ip as self.assigned_object might be changed
             is_primary = False
-            if self.family == 4 and hasattr(original_parent, 'primary_ip4') and original_parent.primary_ip4_id == self.pk:
-                is_primary = True
-            if self.family == 6 and hasattr(original_parent, 'primary_ip6') and original_parent.primary_ip6_id == self.pk:
-                is_primary = True
+            if self.family == 4 and hasattr(original_parent, 'primary_ip4'):
+                if original_parent.primary_ip4_id == self.pk:
+                    is_primary = True
+            if self.family == 6 and hasattr(original_parent, 'primary_ip6'):
+                if original_parent.primary_ip6_id == self.pk:
+                    is_primary = True
 
             if is_primary and (parent != original_parent):
                 raise ValidationError(

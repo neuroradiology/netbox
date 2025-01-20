@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
-from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy as _
 from django.views.generic import View
 
 from core.models import Job, ObjectChange
@@ -143,7 +143,12 @@ class ObjectJobsView(ConditionalLoginRequiredMixin, View):
     """
     Render a list of all Job assigned to an object. For example:
 
-        path('data-sources/<int:pk>/jobs/', ObjectJobsView.as_view(), name='datasource_jobs', kwargs={'model': DataSource}),
+        path(
+            'data-sources/<int:pk>/jobs/',
+             ObjectJobsView.as_view(),
+             name='datasource_jobs',
+             kwargs={'model': DataSource}
+        )
 
     Attributes:
         base_template: The name of the template to extend. If not provided, "{app}/{model}.html" will be used.
