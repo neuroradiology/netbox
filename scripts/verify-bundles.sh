@@ -26,7 +26,7 @@ check_dist() {
         local SHA=$(git rev-parse HEAD)
         echo "Commit '$SHA' produced different static assets than were committed"
         echo $diff
-        git diff $DIST
+        echo $(git diff $DIST)
         exit 1
     fi
 }
