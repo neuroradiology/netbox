@@ -57,6 +57,7 @@ def widget_type(field):
 # Inclusion tags
 #
 
+
 @register.inclusion_tag('form_helpers/render_fieldset.html')
 def render_fieldset(form, fieldset):
     """
