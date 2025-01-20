@@ -4,10 +4,10 @@ from utilities.forms.rendering import InlineFields, ObjectAttribute, TabbedGroup
 
 __all__ = (
     'getfield',
-    'get_filter_field',
     'render_custom_fields',
     'render_errors',
     'render_field',
+    'render_table_filter_field',
     'render_form',
     'widget_type',
 )
@@ -34,9 +34,7 @@ def getfield(form, fieldname):
 
 @register.filter()
 def get_filter_field(form, fieldname):
-    # Check for a table form column map attribute and use that to map form fields if set
-    if hasattr(form, '_table_form_column_map') and form._table_form_column_map.get(fieldname):
-        return getfield(form, form._table_form_column_map.get(fieldname))
+
     return getfield(form, f'{fieldname}') or getfield(form, f'{fieldname}_id')
 
 
@@ -128,7 +126,7 @@ def render_field(field, bulk_nullable=False, label=None):
     }
 
 
-@register.inclusion_tag('form_helpers/render_field.html')
+@register.inclusion_tag('form_helpers/render_table_filter_field.html')
 def render_table_filter_field(field, table, request):
     """
     Render a single form field for table column filters from template

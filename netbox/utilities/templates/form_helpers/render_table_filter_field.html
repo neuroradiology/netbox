@@ -4,7 +4,7 @@
     <a href="#" class="dropdown-toggle" data-bs-toggle="dropdown" data-bs-auto-close="outside"><i class="mdi mdi-filter-settings"></i></a>
     <div class="dropdown-menu">
         <div class="px-3 py-3">
-            {% render_table_filter_field form_field table=table request=request %}
+            {% include "form_helpers/render_field.html" %}
         </div>
     </div>
 </div>
