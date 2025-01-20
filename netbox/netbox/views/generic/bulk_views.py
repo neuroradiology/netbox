@@ -178,18 +178,10 @@ class ObjectListView(BaseMultiObjectView, ActionsMixin, TableMixin):
         # * Apply to the table for use by the table and initialize a separate instance of the form for use by the table
         #   column filters
         # * Otherwise set to None
-        if self.filterset_form and table.filterset_form:
+        if self.filterset_form:
             filterset_form = self.filterset_form(request.GET)
-            table.filterset_form = table.filterset_form(request.GET)
-        elif self.filterset_form and not table.filterset_form:
-            filterset_form = self.filterset_form(request.GET)
-            table.filterset_form = self.filterset_form(request.GET)
-        elif not self.filterset_form and table.filterset_form:
-            filterset_form = None
-            table.filterset_form = table.filterset_form(request.GET)
         else:
             filterset_form = None
-            table.filterset_form = None
 
         # If this is an HTMX request, return only the rendered table HTML
         if htmx_partial(request):
