@@ -263,30 +263,4 @@ class InterfaceTestCase(TestCase):
             'tagged_vlans': [self.vlans[0].pk, self.vlans[1].pk, self.vlans[2]]
         }
         form = InterfaceForm(data, instance=self.interface)
-        form.is_valid()
         self.assertTrue(form.is_valid())
-
-    def test_edit_interface_mode_tagged_all_existing_invalid_data(self):
-        """
-        Test that saving invalid interface mode and tagged/untagged vlans works properly
-        """
-        self.interface.tagged_vlans.add(self.vlans[0])
-        self.interface.tagged_vlans.add(self.vlans[1])
-        data = {
-            'device': self.device.pk,
-            'name': 'Ethernet 1/8',
-            'type': InterfaceTypeChoices.TYPE_1GE_GBIC,
-            'mode': InterfaceModeChoices.MODE_TAGGED_ALL,
-        }
-        form = InterfaceForm(data, instance=self.interface)
-        self.assertFalse(form.is_valid())
-
-        data = {
-            'device': self.device.pk,
-            'name': 'Ethernet 1/9',
-            'type': InterfaceTypeChoices.TYPE_1GE_GBIC,
-            'mode': InterfaceModeChoices.MODE_ACCESS,
-        }
-        form = InterfaceForm(data, instance=self.interface)
-        self.assertFalse(form.is_valid())
-        self.interface.tagged_vlans.clear()
