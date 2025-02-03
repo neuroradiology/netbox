@@ -17,6 +17,7 @@ from .utils import *
 
 # Initialize plugin registry
 registry['plugins'].update({
+    'installed': [],
     'graphql_schemas': [],
     'menus': [],
     'menu_items': {},
@@ -48,6 +49,7 @@ class PluginConfig(AppConfig):
     author_email = ''
     description = ''
     version = ''
+    release_track = ''
 
     # Root URL path under /plugins. If not set, the plugin's label will be used.
     base_url = None
